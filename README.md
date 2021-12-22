@@ -82,3 +82,7 @@ jupyter notebook --ip=0.0.0.0 --no-browser --allow-root
 ```
 
 The notebook is in [notebooks/nhd_nwm.ipynb](notebooks/nhd_nwm.ipynb). Enjoy!
+
+### Notebooks for benchmarking querying NWM in Zarr vs. Parquet format
+
+We want to see if it's faster to query reach-based data in NWM when it is stored in Parquet since it has more of a tabular flavor than the gridden datasets. There is a [notebook](notebooks/save_nwm_sample.ipynb) for saving a sample of NWM in Zarr and Parquet formats, and another [notebook](notebooks/benchmark_zarr_parquet.ipynb) for benchmarking queries against it.
