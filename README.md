@@ -66,8 +66,7 @@ Run the container as follows, making the appropriate substitutions if you are no
 
 ```
 docker run --rm -it \
-    -v /Users/lfishgold/projects/noaa-hydro-data/noaa:/opt/src/noaa \
-    -v /Users/lfishgold/projects/noaa-hydro-data/notebooks:/opt/src/notebooks \
+    -v /Users/lfishgold/projects/noaa-hydro-data/:/opt/src/ \
     -v /Users/lfishgold/data:/opt/data \
     -v /Users/lfishgold/.aws:/home/jovyan/.aws:ro \
     --network noaa-net \
@@ -86,3 +85,7 @@ The notebook is in [notebooks/nhd_nwm.ipynb](notebooks/nhd_nwm.ipynb). Enjoy!
 ### Notebooks for benchmarking querying NWM in Zarr vs. Parquet format
 
 We want to see if it's faster to query reach-based data in NWM when it is stored in Parquet since it has more of a tabular flavor than the gridden datasets. There is a [notebook](notebooks/save_nwm_sample.ipynb) for saving a sample of NWM in Zarr and Parquet formats, and another [notebook](notebooks/benchmark_zarr_parquet.ipynb) for benchmarking queries against it.
+
+### Notebook for saving extract of NHD
+
+There is a [notebook](notebooks/save_nhd_extract.ipynb) to save a GeoJSON file for each HUC in NHD containing the reach geometries and associated COMID fields. This is so that we can perform other workflows without needing an NHD database running.
