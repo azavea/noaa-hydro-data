@@ -62,13 +62,15 @@ Build a Docker image for running the notebook.
 docker build -t noaa-hydro-data -f Dockerfile .
 ```
 
-Run the container as follows, making the appropriate substitutions if you are not Lewis.
+Run the container as follows, making the appropriate substitutions if you are not Lewis. The `--platform linux/amd64` flag is only needed if running on an ARM64 machine like a Macbook Pro M1.
 
 ```
 docker run --rm -it \
-    -v /Users/lfishgold/projects/noaa-hydro-data/:/opt/src/ \
-    -v /Users/lfishgold/data:/opt/data \
-    -v /Users/lfishgold/.aws:/home/jovyan/.aws:ro \
+    --ipc=host -u root \
+    --platform linux/amd64 \
+    -v /Users/lewfish/projects/noaa-hydro-data/:/opt/src/ \
+    -v /Users/lewfish/data:/opt/data \
+    -v /Users/lewfish/.aws:/home/jovyan/.aws:ro \
     --network noaa-net \
     -e AWS_PROFILE=raster-vision \
     -p 8888:8888 noaa-hydro-data
@@ -89,3 +91,7 @@ We want to see if it's faster to query reach-based data in NWM when it is stored
 ### Notebook for saving extract of NHD
 
 There is a [notebook](notebooks/save_nhd_extract.ipynb) to save a GeoJSON file for each HUC in NHD containing the reach geometries and associated COMID fields. This is so that we can perform other workflows without needing an NHD database running.
+
+### Notebook for testing HydroTools
+
+There is a [notebook](notebooks/hydrotools_test.ipynb) that shows how to use the Hydrotools library to compare predicted and observed streamflow levels at sites within a HUC.
