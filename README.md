@@ -1,10 +1,8 @@
 # NOAA Phase 2 Hydrological Data Processing
 
-## NHD/NWM Data Exploration Notebook
+## Local Database Setup
 
-These instructions are for setting up a local copy of NHDPlus V2 and NHDPlus HR, and then running a notebook that shows how to query NWM (stored in Zarr on S3) by HUC.
-
-### Database setup
+These instructions are for setting up a local copy of NHDPlus V2 and NHDPlus HR which is used in some notebooks.
 
 First, create a Docker bridge network so that the main container can communicate with a PostGIS container.
 
@@ -54,9 +52,9 @@ ogr2ogr -f "PostgreSQL" PG:"host=localhost port=5432 user='postgres' password='m
 create extension postgis;
 ```
 
-### Run notebook
+## Docker Setup
 
-Build a Docker image for running the notebook.
+This describes how to build and run a Docker image for running various notebooks.
 
 ```
 docker build -t noaa-hydro-data -f Dockerfile .
@@ -82,16 +80,13 @@ In the container, run the notebook server and then navigate to the URL that is p
 jupyter notebook --ip=0.0.0.0 --no-browser --allow-root
 ```
 
-The notebook is in [notebooks/nhd_nwm.ipynb](notebooks/nhd_nwm.ipynb). Enjoy!
+## Notebooks
 
-### Notebooks for benchmarking querying NWM in Zarr vs. Parquet format
+Here is a summary of the Jupyter [notebooks](notebooks/) in this repo.
 
-We want to see if it's faster to query reach-based data in NWM when it is stored in Parquet since it has more of a tabular flavor than the gridden datasets. There is a [notebook](notebooks/save_nwm_sample.ipynb) for saving a sample of NWM in Zarr and Parquet formats, and another [notebook](notebooks/benchmark_zarr_parquet.ipynb) for benchmarking queries against it.
-
-### Notebook for saving extract of NHD
-
-There is a [notebook](notebooks/save_nhd_extract.ipynb) to save a GeoJSON file for each HUC in NHD containing the reach geometries and associated COMID fields. This is so that we can perform other workflows without needing an NHD database running.
-
-### Notebook for testing HydroTools
-
-There is a [notebook](notebooks/hydrotools_test.ipynb) that shows how to use the Hydrotools library to compare predicted and observed streamflow levels at sites within a HUC.
+* [nhd_nwm.ipynb](notebooks/nhd_nwm.ipynb): Shows how to get a HUC by id, query NHD for all reaches within the HUC, and then query NWM (in Zarr format) to get gridded and reach-based data. Assumes that a sample of NHDPlus V2 and NHDPlus HR have been loaded locally following the instructions above.
+* [save_nwm_sample.ipynb](notebooks/save_nwm_sample.ipynb): Saves a sample of NWM in Zarr and Parquet formats.
+* [benchmark_zarr_parquet.ipynb](notebooks/benchmark_zarr_parquet.ipynb): We want to see if it's faster to query reach-based data in NWM when it is stored in Parquet since it has more of a tabular flavor than the gridden datasets. This notebook implements a a rudimentary benchmark of the speed of querying NWM in Zarr vs. Parquet format.
+* [save_nhd_extract.ipynb](notebooks/save_nhd_extract.ipynb): Saves a GeoJSON file for each HUC in NHD containing the reach geometries and associated COMID fields. This is so that we can perform other workflows without needing an NHD database running.
+* [hydrotools_test.ipynb](notebooks/hydrotools_test.ipynb): Shows how to use the Hydrotools library to compare predicted and observed streamflow levels at sites within a HUC.
+* [archive_nwm.ipynb](notebooks/archive_nwm.ipynb): Shows how to append NWM predictions to a Zarr file in order to archive them.
