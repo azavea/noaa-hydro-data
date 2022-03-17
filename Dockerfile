@@ -1,7 +1,7 @@
 FROM pangeo/pangeo-notebook:latest
 
 RUN conda install -y psycopg2 holoviews geopandas
-RUN pip install -y hydrotools
+RUN pip install hydrotools
 
 WORKDIR /opt/src/
 
