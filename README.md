@@ -37,7 +37,8 @@ Here is a summary of the Jupyter [notebooks](notebooks/) in this repo.
 * [benchmark_zarr_parquet.ipynb](notebooks/benchmark_zarr_parquet.ipynb): We want to see if it's faster to query reach-based data in NWM when it is stored in Parquet since it has more of a tabular flavor than the gridden datasets. This notebook implements a a rudimentary benchmark of the speed of querying NWM in Zarr vs. Parquet format.
 * [save_nhd_extract.ipynb](notebooks/save_nhd_extract.ipynb): Saves a GeoJSON file for each HUC in NHD containing the reach geometries and associated COMID fields. This is so that we can perform other workflows without needing an NHD database running.
 * [hydrotools_test.ipynb](notebooks/hydrotools_test.ipynb): Shows how to use the Hydrotools library to compare predicted and observed streamflow levels at sites within a HUC.
-* [archive_nwm.ipynb](notebooks/archive_nwm.ipynb): Shows how to append NWM predictions to a Zarr file in order to archive them.
+* [archive_nwm_zarr.ipynb](notebooks/archive_nwm_zarr.ipynb): Shows how to append grid-based NWM predictions to a Zarr file in order to archive them.
+* [archive_nwm_parquet.ipynb](notebooks/archive_nwm_parquet.ipynb): Shows how to append point-based NWM predictions to a Parquet file in order to archive them.
 
 ## Local Database Setup
 
