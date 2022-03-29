@@ -92,3 +92,6 @@ ogr2ogr -f "PostgreSQL" PG:"host=localhost port=5432 user='postgres' password='m
 create extension postgis;
 ```
 
+## Other Setup Docs
+ 
+* [Setting up DaskHub on Kubernetes](docs/daskhub-setup.md)
