@@ -1,0 +1,43 @@
+#!/bin/bash
+
+set -e
+
+if [[ -n "${NOAA_DEBUG}" ]]; then
+    set -x
+fi
+
+function usage() {
+    echo -n \
+        "Usage: $(basename "$0")
+Push infrastructure changes to cloud provider (ECR).
+"
+}
+
+if [[ -n "${GIT_COMMIT}" ]]; then
+    GIT_COMMIT="${GIT_COMMIT:0:7}"
+else
+    GIT_COMMIT="$(git rev-parse --short HEAD)"
+fi
+
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+    if [ "${1:-}" = "--help" ]; then
+        usage
+    else
+        # We don't want to push changes on a PR build.
+        if [[ "${CODEBUILD_SOURCE_VERSION}" =~ pr/.* ]]; then
+            exit 0
+        fi
+
+        if [[ -z "${NOAA_SETTINGS_S3_PATH+x}" ]]; then
+            echo "WARNING: No NOAA_SETTINGS_S3_PATH defined, falling back to default in docker-compose.ci.yml"
+        fi
+
+        GIT_COMMIT="${GIT_COMMIT}" \
+            docker-compose -f docker-compose.yml run --rm terraform ./scripts/infra clear
+        GIT_COMMIT="${GIT_COMMIT}" \
+            docker-compose -f docker-compose.yml run --rm terraform ./scripts/infra plan
+        GIT_COMMIT="${GIT_COMMIT}" \
+            docker-compose -f docker-compose.yml run --rm terraform ./scripts/infra apply
+
+    fi
+fi

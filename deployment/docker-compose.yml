@@ -1,0 +1,20 @@
+version: '2.3'
+services:
+  terraform:
+    build:
+      context: .
+      dockerfile: Dockerfile.terraform
+    image: terraform-docker
+    volumes:
+      - ../:/usr/local/src
+      - $HOME/.aws:/root/.aws:ro
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+    environment:
+      - AWS_PROFILE
+      - AWS_DEFAULT_REGION
+      - VERSION_TAG
+      - NOAA_DEBUG
+      - EDITOR=vi
+      - NOAA_SETTINGS_S3_PATH=${NOAA_SETTINGS_S3_PATH:-noaa-settings/us-east-1/staging}
+    working_dir: /usr/local/src/deployment
+    entrypoint: bash
