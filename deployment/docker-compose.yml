@@ -4,14 +4,22 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.terraform
+      args:
+        - KUBECTL_VERSION=${KUBECTL_VERSION:-v1.24.0}
+        - HELM_VERSION=${HELM_VERSION:-v3.8.2}
+        - USER=${USER}
+        - UID
+        - GID
     image: terraform-docker
     volumes:
       - ../:/usr/local/src
-      - $HOME/.aws:/root/.aws:ro
+      - $HOME/.aws:/home/$USER/.aws:ro
+      - $HOME/.kube:/home/$USER/.kube
       - /var/run/docker.sock:/var/run/docker.sock:rw
     environment:
       - AWS_PROFILE
       - AWS_DEFAULT_REGION
+      - USER
       - VERSION_TAG
       - NOAA_DEBUG
       - EDITOR=vi
