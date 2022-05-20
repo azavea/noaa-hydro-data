@@ -1,0 +1,47 @@
+digraph G {
+    rankdir=TB;
+    graph [splines=ortho, nodesep=1];
+    node [shape=rectangle];
+
+    1.1 -> 1.2;
+    1.3 -> 1.2;
+    1.1 -> 1.4;
+    1.3 -> 1.4;
+    1.1 -> 1.5;
+    1.3 -> 1.5;
+
+    1.1 -> 2.1;
+    2.1 -> 2.2;
+    2.1 -> 2.3;
+    2.1 -> 2.4;
+    2.3 -> 2.4;
+
+    2.4 -> 3.3;
+    1.1 -> 3.3;
+    3.1 -> 3.3;
+    3.2 -> 3.3;
+    3.3 -> 3.4;
+
+    2.1 -> 4.1;
+    4.1 -> 4.2;
+    4.3 -> 4.4;
+
+    1.1 [label="Task 1-1: Encode NWM Gridded Output as Zarr"];
+    1.2 [label="Task 1-2: Benchmark HUC Query of NWM Gridded Zarr Output"];
+    1.3 [label="Task 1-3: Encode NWM Streamflow Output as Parquet"];
+    1.4 [label="Task 1-4: Demo the Water Budget Workflow"];
+    1.5 [label="Task 1-5: Document NWM Reanalysis Data Generation and Consumption"];
+    2.1 [label="Task 2-1: Encode NWM Predictions in Cloud Native Format"];
+    2.2 [label="Task 2-2: Benchmark Optimal Layout for NWM Streamflow Predictions"];
+    2.3 [label="Task 2-3: Develop Metadata Catalog for NWM Predictions"];
+    2.4 [label="Task 2-4: Develop Python Library to Query NWM Predictions"];
+    3.1 [label="Task 3-1: Develop NHDPlus Library for Python"];
+    3.2 [label="Task 3-2: Develop National Water Boundary dataset library for Python"];
+    3.3 [label="Task 3-3: Generate Flood Inundation Maps with Dask"];
+    3.4 [label="Task 3-4: Develop Additional Workflows Based on Stakeholder Feedback"];
+    4.1 [label="Task 4-1: Develop Automatic Conversion of NWM Predictions"];
+    4.2 [label="Task 4-2: Deploy Automatic Conversion of NWM Artifacts"];
+    4.3 [label="Task 4-3: Ingest Streamflow Predictions in AWS DynamoDB"];
+    4.4 [label="Task 4-4: Benchmark Streamflow Predictions in AWS DynamoDB"];
+    5.1 [label="Task 5-1: Knowledge Sharing, Exchange, and Reporting"];
+}
