@@ -12,6 +12,12 @@ function usage() {
     echo -n \
 "Usage: $(basename "$0") COMMAND OPTION[S]
 Execute Terraform subcommands with remote state management.
+COMMANDS:
+    clear     Clear stale modules and remote state
+    plan      Initialize and plan infrastructure execution
+    apply     Create infrastructure
+    connect   Connect existing infrastructure to host machine
+    destroy   Remove existing infrastructure
 "
 }
 
@@ -22,10 +28,16 @@ else
 fi
 
 if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+    TERRAFORM_DIR="${DIR}/../terraform"
     if [ "${1:-}" = "--help" ]; then
         usage
+        exit 0
+    elif [ "${1:-}" = "connect" ]; then
+        pushd "${TERRAFORM_DIR}" > /dev/null
+        aws eks --region $(terraform output -raw region) update-kubeconfig --name $(terraform output -raw cluster_name)
+        popd > /dev/null
+        exit 0
     else
-        TERRAFORM_DIR="${DIR}/../terraform"
         echo
         echo "Attempting to deploy application version [${GIT_COMMIT}]..."
         echo "-----------------------------------------------------"
@@ -33,7 +45,7 @@ if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
     fi
 
     if [[ -n "${NOAA_SETTINGS_S3_PATH}" ]]; then
-        pushd "${TERRAFORM_DIR}"
+        pushd "${TERRAFORM_DIR}" > /dev/null
 
         SETTINGS_BUCKET=$(echo ${NOAA_SETTINGS_S3_PATH} | cut -d/ -f1)
         SETTINGS_KEY=$(echo ${NOAA_SETTINGS_S3_PATH} | sed 's%^[^/]*/\(.*\)%\1%')
@@ -61,10 +73,13 @@ if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
                 ;;
             apply)
                 terraform apply "noaa-${VERSION_TAG}.tfplan"
+                #aws eks --region $(terraform output -raw region) update-kubeconfig --name $(terraform output -raw cluster_name)
                 ;;
             destroy)
+                CLUSTER_ARN=$(terraform output -raw cluster_arn)
                 terraform plan -destroy -out=noaa-destroy.tfplan
                 terraform apply --auto-approve -destroy noaa-destroy.tfplan
+                kubectl config unset "contexts.${CLUSTER_ARN}"
                 rm -f noaa-destroy.tfplan
                 ;;
             *)
@@ -73,7 +88,7 @@ if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
                 ;;
         esac
 
-        popd
+        popd > /dev/null
     else
         echo "ERROR: No NOAA_SETTINGS_S3_PATH variable defined.  Please specify in form of <target bucket>/<region>/<environment>."
         exit 1
