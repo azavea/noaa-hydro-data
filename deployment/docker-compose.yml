@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: Dockerfile.terraform
       args:
-        - KUBECTL_VERSION=${KUBECTL_VERSION:-v1.24.0}
+        - KUBECTL_VERSION=${KUBECTL_VERSION:-v1.23.6}
         - HELM_VERSION=${HELM_VERSION:-v3.8.2}
         - USER=${USER}
         - UID
