@@ -32,12 +32,7 @@ variable "cluster_version" {
   default = "1.22"
 }
 
-variable "default_instance_types" {
+variable "instance_types" {
   type = list
   default = ["m4.xlarge", "m6i.large", "m5.large", "m5n.large", "m5zn.large"]
-}
-
-variable "instance_type" {
-  type = string
-  default = "m4.large"
 }

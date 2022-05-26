@@ -25,10 +25,10 @@ module "eks" {
     }
   }
 
-  cluster_encryption_config = [{
-    provider_key_arn = aws_kms_key.eks.arn
-    resources        = ["secrets"]
-  }]
+  # cluster_encryption_config = [{
+  #   provider_key_arn = aws_kms_key.eks.arn
+  #   resources        = ["secrets"]
+  # }]
 
   cluster_tags = {
     # This should not affect the name of the cluster primary security group
@@ -77,12 +77,22 @@ module "eks" {
 
   eks_managed_node_group_defaults = {
     ami_type       = "AL2_x86_64"
-    instance_types = var.default_instance_types
+    instance_types = var.instance_types
 
     iam_role_attach_cni_policy = var.first_cluster_deployment
   }
 
   eks_managed_node_groups = {
+    base = {
+      create_launch_template = false
+      launch_template_name = ""
+      instance_types = ["t3.small"]
+      capacity_type = "SPOT"
+      min_size = 1
+      max_size = 1
+      desired_size = 1
+    }
+
     # Default node group - as provided by AWS EKS
     on_demand = {
       # By default, the module creates a launch template to ensure tags are
@@ -93,41 +103,29 @@ module "eks" {
 
       disk_size = 50
 
+      min_size = 0
+      max_size = 3
+      desired_size = 0
+
       # Remote access cannot be specified with a launch template
       remote_access = {
         ec2_ssh_key               = aws_key_pair.this.key_name
         source_security_group_ids = [aws_security_group.remote_access.id]
       }
 
-      instance_type = var.instance_type
+      instance_types = var.instance_types
     }
 
-    spot_small = {
+    spot = {
       create_launch_template = false
       launch_template_name   = ""
 
-      desired_size = 1
-      min_size     = 1
-      max_size     = 1
+      min_size = 0
+      max_size = 3
+      desired_size = 0
 
-      instance_type = "t3.small"
+      instance_types = var.instance_types
       capacity_type = "SPOT"
-
-      # bootstrap_extra_args = "--kubelet-extra-args '--node-labels=node.kubernetes.io/lifecycle=spot'"
-    }
-
-    spot_small = {
-      create_launch_template = false
-      launch_template_name   = ""
-
-      desired_size = 1
-      min_size     = 1
-      max_size     = 1
-
-      instance_type = "t3.small"
-      capacity_type = "SPOT"
-
-      # bootstrap_extra_args = "--kubelet-extra-args '--node-labels=node.kubernetes.io/lifecycle=spot'"
     }
 
     # Default node group - as provided by AWS EKS using Bottlerocket
@@ -138,128 +136,25 @@ module "eks" {
       create_launch_template = false
       launch_template_name   = ""
 
+      min_size = 0
+      max_size = 3
+      desired_size = 0
+
       ami_type = "BOTTLEROCKET_x86_64"
       platform = "bottlerocket"
 
-      instance_type = "m4.large"
+      instance_types = var.instance_types
       capacity_type = "SPOT"
     }
 
-    # Complete
-    complete = {
-      name            = "complete-eks-mng"
-      use_name_prefix = true
-
-      subnet_ids = module.vpc.private_subnets
-
-      min_size     = 1
-      max_size     = 7
-      desired_size = 1
-
-      ami_id                     = data.aws_ami.eks_default.image_id
-      enable_bootstrap_user_data = true
-      bootstrap_extra_args       = "--container-runtime containerd --kubelet-extra-args '--max-pods=20'"
-
-      pre_bootstrap_user_data = <<-EOT
-      export CONTAINER_RUNTIME="containerd"
-      export USE_MAX_PODS=false
-      EOT
-
-      post_bootstrap_user_data = <<-EOT
-      echo "you are free little kubelet!"
-      EOT
-
-      capacity_type        = "SPOT"
-      force_update_version = true
-      instance_types       = var.default_instance_types
-      labels = {
-        GithubRepo = "azavea"
-        GithubOrg  = var.repo_name
-      }
-
-      taints = [
-        {
-          key    = "dedicated"
-          value  = "gpuGroup"
-          effect = "NO_SCHEDULE"
-        }
-      ]
-
-      update_config = {
-        max_unavailable_percentage = 50 # or set `max_unavailable`
-      }
-
-      description = "EKS managed node group example launch template"
-
-      ebs_optimized           = true
-      vpc_security_group_ids  = [aws_security_group.additional.id]
-      disable_api_termination = false
-      enable_monitoring       = true
-
-      block_device_mappings = {
-        xvda = {
-          device_name = "/dev/xvda"
-          ebs = {
-            volume_size           = 75
-            volume_type           = "gp3"
-            iops                  = 3000
-            throughput            = 150
-            encrypted             = true
-            kms_key_id            = aws_kms_key.ebs.arn
-            delete_on_termination = true
-          }
-        }
-      }
-
-      metadata_options = {
-        http_endpoint               = "enabled"
-        http_tokens                 = "required"
-        http_put_response_hop_limit = 2
-        instance_metadata_tags      = "disabled"
-      }
-
-      create_iam_role          = true
-      iam_role_name            = "eks-managed-node-group-complete-example"
-      iam_role_use_name_prefix = false
-      iam_role_description     = "EKS managed node group complete example role"
-      iam_role_tags = {
-        Purpose = "Protector of the kubelet"
-      }
-      iam_role_additional_policies = [
-        "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
-      ]
-
-      create_security_group          = true
-      security_group_name            = "eks-managed-node-group-complete-example"
-      security_group_use_name_prefix = false
-      security_group_description     = "EKS managed node group complete example security group"
-      security_group_rules = {
-        phoneOut = {
-          description = "Hello CloudFlare"
-          protocol    = "udp"
-          from_port   = 53
-          to_port     = 53
-          type        = "egress"
-          cidr_blocks = ["1.1.1.1/32"]
-        }
-        phoneHome = {
-          description                   = "Hello cluster"
-          protocol                      = "udp"
-          from_port                     = 53
-          to_port                       = 53
-          type                          = "egress"
-          source_cluster_security_group = true # bit of reflection lookup
-        }
-      }
-      security_group_tags = {
-        Purpose = "Protector of the kubelet"
-      }
-
-      tags = {
-        ExtraTag = "EKS managed node group complete example"
-      }
-    }
   }
 
   tags = local.tags
+}
+
+resource "null_resource" "kubectl" {
+  depends_on = [module.eks.kubeconfig]
+  provisioner "local-exec" {
+    command = "aws eks --region ${var.aws_region} update-kubeconfig --name ${module.eks.cluster_id}"
+  }
 }
