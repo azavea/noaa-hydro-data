@@ -38,7 +38,7 @@ CREATE DATABASE nhdplusv2;
 
 # on host machine
 ogr2ogr -f "PostgreSQL" PG:"host=localhost port=5432 user='postgres' password='password' \
-    dbname='nhdplusv2'" data/NHDPlusMA/NHDPlus02/NHDSnapshot/Hydrography -overwrite -progress --config PG_USE_COPY YES
+    dbname='nhdplusv2'" data/NHDPlusMA/NHDPlus02/NHDSnapshot/Hydrography -overwrite -progress --config PG_USE_COPY YES -lco GEOMETRY_NAME=wkb_geometry
 
 # in psql
 create extension postgis;
@@ -53,7 +53,7 @@ CREATE DATABASE nhdplushr;
 
 # on host machine
 ogr2ogr -f "PostgreSQL" PG:"host=localhost port=5432 user='postgres' password='password' \
-    dbname='nhdplushr'" data/NHDPLUS_H_0204_HU4_GDB/NHDPLUS_H_0204_HU4_GDB.gdb -overwrite -progress --config PG_USE_COPY YES
+    dbname='nhdplushr'" data/NHDPLUS_H_0204_HU4_GDB/NHDPLUS_H_0204_HU4_GDB.gdb -overwrite -progress --config PG_USE_COPY YES -lco GEOMETRY_NAME=wkb_geometry
 
 # in psql
 create extension postgis;
