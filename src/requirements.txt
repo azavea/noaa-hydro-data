@@ -1,4 +1,1 @@
-psycopg2
-holoviews
-geopandas
 hydrotools
