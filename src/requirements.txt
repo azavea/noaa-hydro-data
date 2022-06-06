@@ -1,1 +1,1 @@
-hydrotools
+hydrotools==2.2.*

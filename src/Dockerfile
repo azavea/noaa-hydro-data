@@ -11,9 +11,9 @@ RUN set -ex \
     && deps=" \
          postgresql-client" \
     && condaDeps=" \
-         psycopg2 \
-         holoviews \
-         geopandas" \
+         psycopg2=2.9.* \
+         holoviews=1.14.* \
+         geopandas=0.10.*" \
     && apt-get update && apt-get install -y $buildDeps $deps --no-install-recommends \
     && conda install --name notebook --yes $condaDeps \
     && pip install --no-cache-dir -r requirements.txt \
