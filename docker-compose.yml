@@ -24,7 +24,7 @@ services:
     volumes:
       - ./src/:/opt/src/
       - ./data/:/opt/data/
-      - $HOME/.aws:/root/.aws:ro
+      - $HOME/.aws:/home/jovyan/.aws:ro
     ports:
       - 8888:8888
     working_dir: /opt/src
