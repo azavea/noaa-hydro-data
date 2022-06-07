@@ -128,4 +128,6 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-notebooks/dask-worker-space/
+src/notebooks/dask-worker-space/
+
+data/

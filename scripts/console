@@ -1,0 +1,34 @@
+#!/bin/bash
+
+set -e
+
+if [[ -n "${NOAA_HYDRO_DATA_DEBUG}" ]]; then
+    set -x
+fi
+
+function usage() {
+    echo -n \
+        "Usage: $(basename "$0") SERVICE [COMMAND]...
+Run an interactive shell or command inside an application container.
+Example: ./scripts/console jupyter
+Services:
+    database    Database container
+    jupyter     Jupyter Notebook container
+"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    if (( $# == 0 )) || [[ "${1:-}" == "--help" ]]; then
+        usage
+    elif (( $# == 1 )); then
+        docker-compose \
+            run --rm --no-deps \
+            --entrypoint "/bin/bash" \
+            "$1"
+    else
+        docker-compose \
+            run --rm --no-deps \
+            --entrypoint "/bin/bash -c" \
+            "$1" "${*:2}"
+    fi
+fi
