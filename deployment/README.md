@@ -66,3 +66,5 @@ Once connected to a running cluster, the process of accessing Daskhub is as foll
    client = cluster.get_client()
    ```
    You should now be able to run Dask jobs.
+
+   > **NOTE**: Persistent storage is not configured, so you must take care to Download any notebooks created before terminating a Jupyter session!
