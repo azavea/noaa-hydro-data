@@ -13,11 +13,12 @@ function usage() {
 "Usage: $(basename "$0") COMMAND OPTION[S]
 Execute Terraform subcommands with remote state management.
 COMMANDS:
-    clear     Clear stale modules and remote state
-    plan      Initialize and plan infrastructure execution
-    apply     Create infrastructure
-    connect   Connect existing infrastructure to host machine
-    destroy   Remove existing infrastructure
+    clear       Clear stale modules and remote state
+    plan        Initialize and plan infrastructure execution
+    apply       Create infrastructure
+    connect     Connect existing infrastructure to host machine
+    disconnect  Remove cluster from host's .kube/config
+    destroy     Remove existing infrastructure
 "
 }
 
@@ -35,6 +36,12 @@ if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
     elif [ "${1:-}" = "connect" ]; then
         pushd "${TERRAFORM_DIR}" > /dev/null
         aws eks --region $(terraform output -raw region) update-kubeconfig --name $(terraform output -raw cluster_name)
+        popd > /dev/null
+        exit 0
+    elif [ "${1:-}" = "disconnect" ]; then
+        pushd "${TERRAFORM_DIR}" > /dev/null
+        CLUSTER_ARN=$(terraform output -raw cluster_arn)
+        kubectl config unset "contexts.${CLUSTER_ARN}"
         popd > /dev/null
         exit 0
     else
@@ -84,6 +91,7 @@ if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
                 ;;
             *)
                 echo "ERROR: I don't have support for that Terraform subcommand!"
+                usage
                 exit 1
                 ;;
         esac

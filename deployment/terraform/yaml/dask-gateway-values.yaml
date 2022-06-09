@@ -1,0 +1,27 @@
+enabled: true  # Enabling dask-gateway will install Dask Gateway as a dependency.
+# Futher Dask Gateway configuration goes here
+# See https://github.com/dask/dask-gateway/blob/master/resources/helm/dask-gateway/values.yaml
+gateway:
+  prefix: "/services/dask-gateway"  # Users connect to the Gateway through the JupyterHub service.
+  loglevel: INFO
+  auth:
+    type: jupyterhub  # Use JupyterHub to authenticate with Dask Gateway
+  extraConfig:
+    optionHandler: |
+      from dask_gateway_server.options import Options, Integer, Float, String
+      def option_handler(options):
+          if ":" not in options.image:
+              raise ValueError("When specifying an image you must also provide a tag")
+          return {
+              "image": options.image,
+          }
+      c.Backend.cluster_options = Options(
+          String("image", default="pangeo/base-notebook:2022.05.18", label="Image"),
+          handler=option_handler,
+      )
+traefik:
+  service:
+    type: ClusterIP  # Access Dask Gateway through JupyterHub. To access the Gateway from outside JupyterHub, this must be changed to a `LoadBalancer`.
+
+rbac:
+  enabled: true
