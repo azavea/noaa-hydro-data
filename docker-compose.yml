@@ -17,7 +17,7 @@ services:
   jupyter:
     image: noaa-hydro-data
     environment:
-      - AWS_PROFILE=raster-vision
+      - AWS_PROFILE=noaa
     build:
       context: ./src
       dockerfile: Dockerfile
@@ -27,6 +27,7 @@ services:
       - $HOME/.aws:/home/jovyan/.aws:ro
     ports:
       - 8888:8888
+      - 8787:8787
     working_dir: /opt/src
     platform: linux/amd64
     depends_on:
