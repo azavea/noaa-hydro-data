@@ -17,7 +17,7 @@ services:
   jupyter:
     image: noaa-hydro-data
     environment:
-      - AWS_PROFILE=raster-vision
+      - AWS_PROFILE=noaa
     build:
       context: ./src
       dockerfile: Dockerfile
