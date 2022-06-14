@@ -35,13 +35,11 @@ Download a [sample](https://edap-ow-data-commons.s3.amazonaws.com/NHDPlusV21/Dat
 # in psql
 CREATE DATABASE nhdplusv2;
 \c nhdplusv2;
+CREATE EXTENSION postgis;
 
 # on host machine
 ogr2ogr -f "PostgreSQL" PG:"host=localhost port=5432 user='postgres' password='password' \
     dbname='nhdplusv2'" data/NHDPlusMA/NHDPlus02/NHDSnapshot/Hydrography -overwrite -progress --config PG_USE_COPY YES -lco GEOMETRY_NAME=wkb_geometry
-
-# in psql
-create extension postgis;
 ```
 
 Then, follow similar steps to load a [sample](https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHDPlusHR/Beta/GDB/NHDPLUS_H_0204_HU4_GDB.zip) of the NHDPlus HR dataset which has the `wbdhu12` table containing HUC 12 polygons. This table is not present in NHDPlus V2. 
@@ -50,13 +48,11 @@ Then, follow similar steps to load a [sample](https://prd-tnm.s3.amazonaws.com/S
 # in psql
 CREATE DATABASE nhdplushr;
 \c nhdplushr;
+CREATE EXTENSION postgis;
 
 # on host machine
 ogr2ogr -f "PostgreSQL" PG:"host=localhost port=5432 user='postgres' password='password' \
     dbname='nhdplushr'" data/NHDPLUS_H_0204_HU4_GDB/NHDPLUS_H_0204_HU4_GDB.gdb -overwrite -progress --config PG_USE_COPY YES -lco GEOMETRY_NAME=wkb_geometry
-
-# in psql
-create extension postgis;
 ```
 
 ## Other Setup Docs
