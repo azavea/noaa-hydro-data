@@ -1,1 +1,2 @@
 hydrotools==2.2.*
+rechunker==0.5.*

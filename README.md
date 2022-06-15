@@ -18,6 +18,7 @@ Here is a summary of the Jupyter [notebooks](src/notebooks/) in this repo.
 * [hydrotools_test.ipynb](src/notebooks/hydrotools_test.ipynb): Shows how to use the Hydrotools library to compare predicted and observed streamflow levels at sites within a HUC.
 * [archive_nwm_zarr.ipynb](src/notebooks/archive_nwm_zarr.ipynb): Shows how to append grid-based NWM predictions to a Zarr file in order to archive them.
 * [archive_nwm_parquet.ipynb](src/notebooks/archive_nwm_parquet.ipynb): Shows how to append point-based NWM predictions to a Parquet file in order to archive them.
+* [rechunker_test.ipynb](src/notebooks/rechunker_test.ipynb): Test rechunker library on NWM 
 
 ## Local Database Setup
 
