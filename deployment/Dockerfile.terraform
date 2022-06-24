@@ -4,6 +4,7 @@ ARG KUBECTL_VERSION
 ARG HELM_VERSION
 
 RUN apk add --update docker openrc
+RUN pip3 install --upgrade awscli
 RUN rc-update add docker boot
 RUN cd /tmp && \
     curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl" && \
