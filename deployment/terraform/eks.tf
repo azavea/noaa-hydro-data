@@ -6,8 +6,8 @@ module "eks" {
   cluster_endpoint_private_access = true
   cluster_endpoint_public_access  = true
 
-  # Might be able to skip the IPv6 difficulties (do we need ipv6?)
   # # IPV6
+  # # This might not be strictly necessary if we don't need ipv6
   # cluster_ip_family = "ipv6"
   #
   # # TODO - remove this policy once AWS releases a managed version similar to
@@ -41,6 +41,7 @@ module "eks" {
   subnet_ids = module.vpc.private_subnets
 
   manage_aws_auth_configmap = true
+  aws_auth_users = var.user_map
 
   # Extend cluster security group rules
   cluster_security_group_additional_rules = {
@@ -86,67 +87,12 @@ module "eks" {
     base = {
       create_launch_template = false
       launch_template_name = ""
-      instance_types = ["t3.small"]
-      capacity_type = "SPOT"
+      instance_types = [var.base_instance_type]
+      capacity_type = var.base_instance_capacity_type
       min_size = 1
       max_size = 1
       desired_size = 1
     }
-
-    # Default node group - as provided by AWS EKS
-    on_demand = {
-      # By default, the module creates a launch template to ensure tags are
-      # propagated to instances, etc., so we need to disable it to use the
-      # default template provided by the AWS EKS managed node group service
-      create_launch_template = false
-      launch_template_name   = ""
-
-      disk_size = 50
-
-      min_size = 0
-      max_size = 3
-      desired_size = 0
-
-      # Remote access cannot be specified with a launch template
-      remote_access = {
-        ec2_ssh_key               = aws_key_pair.this.key_name
-        source_security_group_ids = [aws_security_group.remote_access.id]
-      }
-
-      instance_types = var.instance_types
-    }
-
-    spot = {
-      create_launch_template = false
-      launch_template_name   = ""
-
-      min_size = 0
-      max_size = 3
-      desired_size = 0
-
-      instance_types = var.instance_types
-      capacity_type = "SPOT"
-    }
-
-    # Default node group - as provided by AWS EKS using Bottlerocket
-    bottlerocket = {
-      # By default, the module creates a launch template to ensure tags are
-      # propagated to instances, etc., so we need to disable it to use the
-      # default template provided by the AWS EKS managed node group service
-      create_launch_template = false
-      launch_template_name   = ""
-
-      min_size = 0
-      max_size = 3
-      desired_size = 0
-
-      ami_type = "BOTTLEROCKET_x86_64"
-      platform = "bottlerocket"
-
-      instance_types = var.instance_types
-      capacity_type = "SPOT"
-    }
-
   }
 
   tags = local.tags
