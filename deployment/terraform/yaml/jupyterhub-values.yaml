@@ -1,13 +1,29 @@
 rbac:
   enabled: true
 
+proxy:
+  service:
+    type: LoadBalancer # NodePort
+    # annotations:
+    #   service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    #   service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+  https:
+    enabled: true
+
 hub:
+  config:
+    GenericOAuthenticator:
+      login_service: "AWS Cognito"
+      username_key: "username"
+      userdata_method: "POST"
+    JupyterHub:
+      authenticator_class: oauthenticator.generic.GenericOAuthenticator
   services:
     dask-gateway:
       url: http://traefik-dask-gateway
   extraConfig:
     # Register Dask Gateway service and setup singleuser environment.
-    00-add-dask-gateway-values: |
+    add-dask-gateway-values: |
       # 1. Sets `DASK_GATEWAY__PROXY_ADDRESS` in the singleuser environment.
       # 2. Adds the URL for the Dask Gateway JupyterHub service.
       import os
@@ -46,7 +62,20 @@ hub:
       else:
           print("dask-gateway service not found. Did you set jupyterhub.hub.services.dask-gateway.apiToken?")
 
+ingress:
+  enabled: true
+  hosts:
+    - jupyter.noaa.azavea.com
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+
+cull:
+  enabled: true
+  timeout: 1800
+
 singleuser:
+  startTimeout: 300
   image:
     name: pangeo/base-notebook  # Image to use for singleuser environment. Must include dask-gateway.
     tag: "2022.05.18"
