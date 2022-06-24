@@ -44,6 +44,8 @@ resource "kubectl_manifest" "karpenter_provisioner" {
     provider:
       subnetSelector:
         kubernetes.io/cluster/${local.cluster_name}: '*'
+      securityGroupSelector:
+        "aws:eks:cluster-name": ${local.cluster_name}
       tags:
         azavea.com/${var.app_name}: 'provisioner'
       instanceProfile:
