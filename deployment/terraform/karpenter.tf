@@ -24,6 +24,7 @@ resource "helm_release" "karpenter" {
   }
 }
 
+# Here, we set the behavior of Karpenter; see https://karpenter.sh/v0.6.3/aws/provisioning/
 resource "kubectl_manifest" "karpenter_provisioner" {
   yaml_body = <<-YAML
   apiVersion: karpenter.sh/v1alpha5
