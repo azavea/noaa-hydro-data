@@ -41,7 +41,9 @@ if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
     elif [ "${1:-}" = "disconnect" ]; then
         pushd "${TERRAFORM_DIR}" > /dev/null
         CLUSTER_ARN=$(terraform output -raw cluster_arn)
+        kubectl config unset "clusters.${CLUSTER_ARN}"
         kubectl config unset "contexts.${CLUSTER_ARN}"
+        kubectl config unset "users.${CLUSTER_ARN}"
         popd > /dev/null
         exit 0
     else
