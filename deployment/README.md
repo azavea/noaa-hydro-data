@@ -56,12 +56,12 @@ Once connected to a running cluster, the process of accessing Daskhub is as foll
 3. Use the following basic code to create a Dask gateway, cluster, and client:
    ```python
    from dask_gateway import Gateway
+   import dask.array as da
 
    gateway = Gateway()
    cluster = gateway.new_cluster()
+   cluster.adapt(minimum=1, maximum=5)
    client = cluster.get_client()
-
-   import dask.array as da
 
    array = da.ones((1000, 1000, 1000))
    print(array.mean().compute())
