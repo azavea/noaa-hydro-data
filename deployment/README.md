@@ -57,13 +57,16 @@ Once connected to a running cluster, the process of accessing Daskhub is as foll
    ```python
    from dask_gateway import Gateway
 
-   gateway = Gateway(
-       address="http://traefik-dask-gateway/services/dask-gateway/",
-       proxy_address="gateway://traefik-dask-gateway:80",
-       auth="jupyterhub"
-   )
+   gateway = Gateway()
    cluster = gateway.new_cluster()
    client = cluster.get_client()
+
+   import dask.array as da
+
+   array = da.ones((1000, 1000, 1000))
+   print(array.mean().compute())
+
+   gateway.stop_cluster(cluster.name)
    ```
    You should now be able to run Dask jobs.
 

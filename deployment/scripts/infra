@@ -88,7 +88,9 @@ if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
                 CLUSTER_ARN=$(terraform output -raw cluster_arn)
                 terraform plan -destroy -out=noaa-destroy.tfplan
                 terraform apply --auto-approve -destroy noaa-destroy.tfplan
+                kubectl config unset "clusters.${CLUSTER_ARN}"
                 kubectl config unset "contexts.${CLUSTER_ARN}"
+                kubectl config unset "users.${CLUSTER_ARN}"
                 rm -f noaa-destroy.tfplan
                 ;;
             *)

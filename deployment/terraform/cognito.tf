@@ -1,5 +1,7 @@
 resource "aws_cognito_user_pool" "pool" {
   name = "${var.app_name}-pool"
+
+  username_attributes = ["email"]
 }
 
 resource "aws_cognito_user_pool_domain" "domain" {
@@ -31,6 +33,7 @@ resource "aws_cognito_resource_server" "resource" {
 
 resource "aws_cognito_user_pool_client" "client" {
   name = "${var.app_name}-client"
+  depends_on = [aws_cognito_identity_provider.provider]
 
   generate_secret = true
   user_pool_id = aws_cognito_user_pool.pool.id

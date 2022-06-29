@@ -24,6 +24,25 @@ resource "helm_release" "karpenter" {
   }
 }
 
+module "karpenter_controller_irsa_role" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+
+  role_name                          = "karpenter-controller"
+  attach_karpenter_controller_policy = true
+
+  karpenter_controller_cluster_id         = module.eks.cluster_id
+  karpenter_controller_node_iam_role_arns = [for ng in module.eks.eks_managed_node_groups: ng.iam_role_arn]
+
+  oidc_providers = {
+    ex = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = ["karpenter:karpenter"]
+    }
+  }
+
+  tags = local.tags
+}
+
 # Here, we set the behavior of Karpenter; see https://karpenter.sh/v0.6.3/aws/provisioning/
 resource "kubectl_manifest" "karpenter_provisioner" {
   yaml_body = <<-YAML

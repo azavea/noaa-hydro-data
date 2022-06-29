@@ -15,10 +15,10 @@ gateway:
           return {
               "image": options.image,
           }
-      c.Backend.cluster_options = Options(
-          String("image", default="pangeo/base-notebook:2022.05.18", label="Image"),
-          handler=option_handler,
-      )
+      # c.Backend.cluster_options = Options(
+      #     String("image", default="pangeo/base-notebook:2022.05.18", label="Image"),
+      #     handler=option_handler,
+      # )
 traefik:
   service:
     type: ClusterIP  # Access Dask Gateway through JupyterHub. To access the Gateway from outside JupyterHub, this must be changed to a `LoadBalancer`.

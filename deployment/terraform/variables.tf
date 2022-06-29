@@ -40,13 +40,13 @@ variable "cluster_version" {
 variable "base_instance_type" {
   type = string
   description = "The instance type to use for the always-on core instance running system pods"
-  default = "t3.small"
+  default = "t3.medium"
 }
 
 variable "base_instance_capacity_type" {
   type = string
   description = "The capacity type of the always-on core instance (SPOT, ON_DEMAND)"
-  default = "SPOT"
+  default = "ON_DEMAND"
 }
 
 variable "instance_types" {
@@ -88,4 +88,15 @@ variable "google_identity_client_id" {
 variable "google_identity_client_secret" {
   type = string
   description = "Client ID for Google identity provider"
+}
+
+variable "pangeo_notebook_version" {
+  type = string
+  description = "Version of pangeo"
+  default = "2022.05.18"
+}
+
+variable "jupyter_notebook_s3_bucket" {
+  type = string
+  description = "The name of the bucket in which to store user notebooks"
 }
