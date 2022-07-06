@@ -10,6 +10,8 @@ function usage() {
     echo -n \
          "Usage: $(basename "$0")
 Publishes noaa-hydro-data image to ECR.
+
+Expects NOAA_ECR_IMAGE_NAME to be set to ECR repo name to push to.
 "
 }
 
@@ -29,7 +31,7 @@ then
         --username AWS \
         --password-stdin ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com;
     docker tag ${IMAGE_NAME} \
-        ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/noaa-hydro-data:latest
+        ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${NOAA_ECR_IMAGE_NAME}
     docker push \
-        ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/noaa-hydro-data:latest
+        ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${NOAA_ECR_IMAGE_NAME}
 fi

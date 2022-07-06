@@ -11,7 +11,6 @@ Run the notebook server with `./scripts/server` and then navigate to the URL tha
 Here is a summary of the Jupyter [notebooks](src/notebooks/) in this repo.
 
 * [nhd_nwm.ipynb](src/notebooks/nhd_nwm.ipynb): Shows how to get a HUC by id, query NHD for all reaches within the HUC, and then query NWM (in Zarr format) to get gridded and reach-based data. Assumes that a sample of NHDPlus V2 and NHDPlus HR have been loaded locally following the instructions above.
-* [huc8_streamflow_query.ipynb](src/notebooks/huc8_streamflow_query.ipynb)
 * [save_nwm_sample.ipynb](src/notebooks/save_nwm_sample.ipynb): Saves a sample of NWM in Zarr and Parquet formats.
 * [benchmark_zarr_parquet.ipynb](src/notebooks/benchmark_zarr_parquet.ipynb): We want to see if it's faster to query reach-based data in NWM when it is stored in Parquet since it has more of a tabular flavor than the gridden datasets. This notebook implements a a rudimentary benchmark of the speed of querying NWM in Zarr vs. Parquet format.
 * [save_nhd_extract.ipynb](src/notebooks/save_nhd_extract.ipynb): Saves a GeoJSON file for each HUC in NHD containing the reach geometries and associated COMID fields. This is so that we can perform other workflows without needing an NHD database running.
@@ -19,6 +18,9 @@ Here is a summary of the Jupyter [notebooks](src/notebooks/) in this repo.
 * [archive_nwm_zarr.ipynb](src/notebooks/archive_nwm_zarr.ipynb): Shows how to append grid-based NWM predictions to a Zarr file in order to archive them.
 * [archive_nwm_parquet.ipynb](src/notebooks/archive_nwm_parquet.ipynb): Shows how to append point-based NWM predictions to a Parquet file in order to archive them.
 * [rechunker_test.ipynb](src/notebooks/rechunker_test.ipynb): Test rechunker library on NWM 
+* [save_huc2_comids.ipynb](src/notebooks/save_huc2_comids.ipynb): Save COMIDs for HUC2 02 which is used for testing purposes.
+* [huc8_streamflow_query.ipynb](src/notebooks/huc8_streamflow_query.ipynb): Run benchmarks using HUC8 streamflow query
+* [rechunk_zarr_subset.ipynb](src/notebooks/rechunk_zarr_subset.ipynb): Save a subset of NWM and rechunk it to use in benchmarking experiments.
 
 ## Local Database Setup
 
@@ -59,3 +61,15 @@ ogr2ogr -f "PostgreSQL" PG:"host=localhost port=5432 user='postgres' password='p
 ## Other Setup Docs
  
 * [Setting up DaskHub on Kubernetes](docs/daskhub-setup.md)
+
+## Running on AWS Batch
+
+* Make a new ECR repository.
+* Make a new Batch job definition modeled after `lfishgoldNoaaHydroData`. This should point to the above ECR repo and use the `queueCPU` job queue.
+* Set the `NOAA_ECR_IMAGE_NAME` environment variable to the ECR repo created above.
+* Build the Docker image using `./scripts/update` and then upload the image to ECR using `./scripts/ecr_publish`.
+* Run commands in the container on Batch using something like the following assuming you have AWS CLI v2: 
+```
+aws batch submit-job --job-name <a job name> --job-queue queueCPU --job-definition <the batch job definition> \
+    --container-overrides '{"command": ["echo", "hello", "world"], "resourceRequirements": [{"value": "<the number of cores to use>", "type": "VCPU"}]}' 
+```
