@@ -29,7 +29,6 @@ services:
       - 8888:8888
       - 8787:8787
     working_dir: /opt/src
-    platform: linux/amd64
     depends_on:
       database:
         condition: service_healthy
