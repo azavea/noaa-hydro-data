@@ -19,6 +19,7 @@ gateway:
       #     String("image", default="pangeo/base-notebook:2022.05.18", label="Image"),
       #     handler=option_handler,
       # )
+      c.KubeClusterConfig.idle_timeout = 1800
 traefik:
   service:
     type: ClusterIP  # Access Dask Gateway through JupyterHub. To access the Gateway from outside JupyterHub, this must be changed to a `LoadBalancer`.
