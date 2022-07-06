@@ -22,6 +22,4 @@ RUN set -ex \
 
 ENV PYTHONPATH=/opt/src/noaa/:$PYTHONPATH
 
-ENTRYPOINT ["jupyter"]
-
-CMD ["notebook", "--ip=0.0.0.0", "--no-browser", "--allow-root"]
+CMD ["jupyter", "notebook", "--ip=0.0.0.0", "--no-browser", "--allow-root"]

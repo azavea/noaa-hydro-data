@@ -59,3 +59,15 @@ ogr2ogr -f "PostgreSQL" PG:"host=localhost port=5432 user='postgres' password='p
 ## Other Setup Docs
  
 * [Setting up DaskHub on Kubernetes](docs/daskhub-setup.md)
+
+## Running on AWS Batch
+
+* Make a new ECR repository.
+* Make a new Batch job definition modeled after `lfishgoldNoaaHydroData`. This should point to the above ECR repo and use the `queueCPU` job queue.
+* Set the `NOAA_ECR_IMAGE_NAME` environment variable to the ECR repo created above.
+* Build the Docker image using `./scripts/update` and then upload the image to ECR using `./scripts/ecr_publish`.
+* Run commands in the container on Batch using something like the following assuming you have AWS CLI v2: 
+```
+aws batch submit-job --job-name <a job name> --job-queue queueCPU --job-definition <the batch job definition> \
+    --container-overrides '{"command": ["echo", "hello", "world"], "resourceRequirements": [{"value": "<the number of cores to use>", "type": "VCPU"}]}' 
+```

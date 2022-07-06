@@ -34,6 +34,7 @@ services:
       database:
         condition: service_healthy
     command:
+      - "jupyter"
       - "notebook"
       - "--ip=0.0.0.0"
       - "--no-browser"
