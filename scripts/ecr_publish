@@ -1,0 +1,37 @@
+#!/bin/bash
+
+set -e
+
+if [[ -n "${NOAA_HYDR_DATA_DEBUG}" ]]; then
+    set -x
+fi
+
+function usage() {
+    echo -n \
+         "Usage: $(basename "$0")
+Publishes noaa-hydro-data image to ECR.
+
+Expects NOAA_ECR_IMAGE_NAME to be set to ECR repo name to push to.
+"
+}
+
+if [ "${BASH_SOURCE[0]}" = "${0}" ]
+then
+    if [ "${1:-}" = "--help" ]
+    then
+        usage
+        exit
+    fi
+
+    IMAGE_NAME="noaa-hydro-data:latest"
+    ACCOUNT_ID=$(aws sts get-caller-identity --output text --query 'Account')
+    AWS_REGION="us-east-1"
+
+    aws ecr get-login-password --region ${AWS_REGION} | docker login \
+        --username AWS \
+        --password-stdin ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com;
+    docker tag ${IMAGE_NAME} \
+        ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${NOAA_ECR_IMAGE_NAME}
+    docker push \
+        ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${NOAA_ECR_IMAGE_NAME}
+fi
