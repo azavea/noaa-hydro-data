@@ -66,11 +66,20 @@ parquet_df.head()
 # * The transposed chunk size (30000, 672) is much faster for large queries over 3652 days, but doesn't have much of an effect for smaller queries.
 # * The different queries all take roughly the same amount of time.
 
+data_format_colors = {
+    '(672, 30000)': 'tab:blue',
+    'zarr (672, 30000)': 'tab:blue',
+    '(30000, 672)': 'tab:orange',
+    'zarr (30000, 672)': 'tab:orange',
+    'parquet': 'tab:green',
+}
+
+
 # Zarr
 sns.set(font_scale = 1.2)
 plot = sns.catplot(
     x='days in query', y='run time: secs', col='query', hue='chunk shape', 
-    kind='bar', data=zarr_df)
+    kind='bar', data=zarr_df, palette=data_format_colors)
 fig = plot.fig
 fig.subplots_adjust(top=0.85)
 fig.suptitle('Timing streamflow queries using Zarr')
@@ -89,7 +98,7 @@ savefig_s3(fig, join(out_root_uri, 'parquet.png'), format='png', dpi=200)
 
 # ### Make a plot of one query comparing Zarr and Parquet
 
-df = pd.concat([parquet_df.query('query == "mean_day"'), zarr_df.query('query == "mean_day"')])
+df = pd.concat([parquet_df.query('query == "mean_week"'), zarr_df.query('query == "mean_week"')])
 
 data_format = []
 for _data_format, _chunk_shape in zip(df.data_format.values, df['chunk shape'].values):
@@ -103,7 +112,7 @@ df['data format'] = data_format
 
 plot = sns.catplot(
     x='days in query', y='run time: secs', col='query', hue='data format',
-    kind='bar', data=df)
+    kind='bar', data=df, palette=data_format_colors)
 fig = plot.fig
 fig.subplots_adjust(top=0.85)
 fig.suptitle('Comparing Zarr and Parquet for streamflow queries')
