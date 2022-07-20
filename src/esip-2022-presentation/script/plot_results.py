@@ -47,7 +47,7 @@ zarr_df = add_extra_cols(pd.read_csv(results_uri))
 zarr_df.head()
 
 
-parquet_uri = 's3://azavea-noaa-hydro-data/esip-experiments/benchmarks/parquet/lf/07-16-2022a.csv'
+parquet_uri = 's3://azavea-noaa-hydro-data/esip-experiments/benchmarks/vl/07-20-2022c.csv'
 parquet_df = add_extra_cols(pd.read_csv(parquet_uri))
 parquet_df.head()
 
@@ -87,6 +87,7 @@ savefig_s3(fig, join(out_root_uri, 'zarr.png'), format='png', dpi=200)
 
 
 # Parquet
+out_root_uri = 's3://azavea-noaa-hydro-data/esip-experiments/plots/parquet/vl/07-20-2022c/'
 plot = sns.catplot(
     x='days in query', y='run time: secs', col='query',
     kind='bar', data=parquet_df)
