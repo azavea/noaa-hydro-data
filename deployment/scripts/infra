@@ -1,0 +1,108 @@
+#!/bin/bash
+
+set -e
+
+if [[ -n "${NOAA_DEBUG}" ]]; then
+    set -x
+fi
+
+DIR="$(dirname "$0")"
+
+function usage() {
+    echo -n \
+"Usage: $(basename "$0") COMMAND OPTION[S]
+Execute Terraform subcommands with remote state management.
+COMMANDS:
+    clear       Clear stale modules and remote state
+    plan        Initialize and plan infrastructure execution
+    apply       Create infrastructure
+    connect     Connect existing infrastructure to host machine
+    disconnect  Remove cluster from host's .kube/config
+    destroy     Remove existing infrastructure
+"
+}
+
+if [[ -n "${GIT_COMMIT}" ]]; then
+    GIT_COMMIT="${GIT_COMMIT:0:7}"
+else
+    GIT_COMMIT="$(git rev-parse --short HEAD)"
+fi
+
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+    TERRAFORM_DIR="${DIR}/../terraform"
+    if [ "${1:-}" = "--help" ]; then
+        usage
+        exit 0
+    elif [ "${1:-}" = "connect" ]; then
+        pushd "${TERRAFORM_DIR}" > /dev/null
+        aws eks --region $(terraform output -raw region) update-kubeconfig --name $(terraform output -raw cluster_name)
+        popd > /dev/null
+        exit 0
+    elif [ "${1:-}" = "disconnect" ]; then
+        pushd "${TERRAFORM_DIR}" > /dev/null
+        CLUSTER_ARN=$(terraform output -raw cluster_arn)
+        kubectl config unset "clusters.${CLUSTER_ARN}"
+        kubectl config unset "contexts.${CLUSTER_ARN}"
+        kubectl config unset "users.${CLUSTER_ARN}"
+        popd > /dev/null
+        exit 0
+    else
+        echo
+        echo "Attempting to deploy application version [${GIT_COMMIT}]..."
+        echo "-----------------------------------------------------"
+        echo
+    fi
+
+    if [[ -n "${NOAA_SETTINGS_S3_PATH}" ]]; then
+        pushd "${TERRAFORM_DIR}" > /dev/null
+
+        SETTINGS_BUCKET=$(echo ${NOAA_SETTINGS_S3_PATH} | cut -d/ -f1)
+        SETTINGS_KEY=$(echo ${NOAA_SETTINGS_S3_PATH} | sed 's%^[^/]*/\(.*\)%\1%')
+
+        aws s3 cp "s3://${SETTINGS_BUCKET}/${SETTINGS_KEY}/terraform.tfvars" "terraform.tfvars"
+        if [ -n ${VERSION_TAG+x} ]; then
+            VERSION_TAG=$(grep environment terraform.tfvars | awk '{print tolower($3)}' | xargs)
+            echo "VERSION_TAG not set.  Using environment setting (${VERSION_TAG}) from tfvars"
+        fi
+
+        case "${1}" in
+            clear)
+                # Clear stale modules & remote state, then re-initialize
+                rm -rf .terraform terraform.tfstate*
+                ;;
+            plan)
+                terraform init \
+                  -upgrade \
+                  -backend-config="bucket=${SETTINGS_BUCKET}" \
+                  -backend-config="key=${SETTINGS_KEY}/terraform/state" \
+                  -backend-config="region=$(aws configure get region)"
+
+                terraform plan \
+                          -out="noaa-${VERSION_TAG}.tfplan"
+                ;;
+            apply)
+                terraform apply "noaa-${VERSION_TAG}.tfplan"
+                #aws eks --region $(terraform output -raw region) update-kubeconfig --name $(terraform output -raw cluster_name)
+                ;;
+            destroy)
+                CLUSTER_ARN=$(terraform output -raw cluster_arn)
+                terraform plan -destroy -out=noaa-destroy.tfplan
+                terraform apply --auto-approve -destroy noaa-destroy.tfplan
+                kubectl config unset "clusters.${CLUSTER_ARN}"
+                kubectl config unset "contexts.${CLUSTER_ARN}"
+                kubectl config unset "users.${CLUSTER_ARN}"
+                rm -f noaa-destroy.tfplan
+                ;;
+            *)
+                echo "ERROR: I don't have support for that Terraform subcommand!"
+                usage
+                exit 1
+                ;;
+        esac
+
+        popd > /dev/null
+    else
+        echo "ERROR: No NOAA_SETTINGS_S3_PATH variable defined.  Please specify in form of <target bucket>/<region>/<environment>."
+        exit 1
+    fi
+fi

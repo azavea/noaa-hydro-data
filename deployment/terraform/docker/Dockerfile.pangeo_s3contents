@@ -1,0 +1,5 @@
+ARG PANGEO_VERSION
+FROM pangeo/base-notebook:$PANGEO_VERSION
+
+RUN pip3 install s3contents
+COPY --chmod=444 jupyter_notebook_config.py /etc/jupyter/jupyter_notebook_config.py
