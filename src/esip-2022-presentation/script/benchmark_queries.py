@@ -34,7 +34,7 @@ def get_json(uri):
 # Connect to existing cluster using cluster.name
 
 # This constant needs to be set!
-cluster_name = 'daskhub.851dc0d79d8e47d18eda105454dade7e'
+cluster_name = ''
 gateway = Gateway()
 cluster = gateway.connect(cluster_name)
 client = cluster.get_client()
@@ -132,7 +132,8 @@ df
 # A map from query nicknames to functions that execute the query.
 query_map = {
     'mean_day': (lambda df: df.groupby(df.index.dayofyear).streamflow.mean().values.compute()),
-    'mean_week': (lambda df: df.groupby(df.index.weekofyear).streamflow.mean().values.compute())
+    'mean_week': (lambda df: df.groupby(df.index.weekofyear).streamflow.mean().values.compute()),
+    'mean_features_mean_day': (lambda df: df.groupby(['feature_id',df.index.dayofyear]).streamflow.mean().values.compute()),
 }
 data_format = 'parquet'
 
@@ -143,21 +144,18 @@ parq_uris = [parq_uri]
 parq_results_uri = ''
 
 
-# Run this block to configure a small set of experiments for testing purposes.
-# This is useful since the Parquet experiments run so slowly currently.
-nb_repeats = 1
-query_map = {'mean_day': query_map['mean_day']}
-time_ranges = [
-    slice('1990-01-01', '1990-02-01'),
-]
-
-
 get_ipython().run_cell_magic('time', '', "\nparq_exp_rows = []\nfor parq_uri in tqdm(parq_uris, desc='parqet stores', leave=False):\n    df = dd.read_parquet(parq_uri, engine='pyarrow', index='time', columns=['feature_id','streamflow'])\n    for time_range in tqdm(time_ranges, desc='time ranges', leave=False):\n        sub_df = df.query(\n            'feature_id in @avail_comids and time > @start_time and time < @end_time', \n            local_dict={\n                'avail_comids': avail_comids, \n                'start_time': time_range.start,\n                'end_time': time_range.stop})\n\n        nb_days = (pd.to_datetime(time_range.stop) - pd.to_datetime(time_range.start)).days\n        \n        # TODO: make the next lines of code valid\n        time_chunk_sz = -9999\n        feature_id_chunk_sz = -9999\n        \n        for qname, qfunc in tqdm(query_map.items(), desc='query', leave=False):\n            for repeat_ind in tqdm(range(nb_repeats), desc='repeat', leave=False):\n                start_time = time.time()\n                vals = qfunc(sub_df)\n                elapsed = time.time() - start_time\n                exp_row = {\n                    'query': qname,\n                    'time': elapsed,\n                    'nb_reaches': nb_reaches,\n                    'nb_days': nb_days,\n                    'data_format': data_format,\n                    'time_chunk_sz': time_chunk_sz,\n                    'feature_id_chunk_sz': feature_id_chunk_sz,\n                    'repeat_ind': repeat_ind\n                }\n                parq_exp_rows.append(exp_row)\n        del sub_df\n    del df\n")
 
 
-df = pd.DataFrame(parq_exp_rows)
-df.to_csv(parq_results_uri)
-df
+## df = pd.DataFrame(parq_exp_rows)
+## df.to_csv(parq_results_uri)
+## df
+
+
+parq_results_uri = 's3://azavea-noaa-hydro-data/esip-experiments/benchmarks/vl/07-20-2022c.csv'
+results = pd.DataFrame(parq_exp_rows)
+results.to_csv(parq_results_uri)
+results
 
 
 
