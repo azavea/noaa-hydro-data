@@ -1,0 +1,28 @@
+FROM quay.io/azavea/terraform:1.0.0
+
+ARG DOCKER_GID
+RUN addgroup -g ${DOCKER_GID} docker
+RUN apk add --update docker openrc
+RUN pip3 install --upgrade awscli
+RUN rc-update add docker boot
+
+ARG KUBECTL_VERSION
+ARG HELM_VERSION
+RUN cd /tmp && \
+    curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl" && \
+    install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
+    rm kubectl
+RUN cd /tmp && \
+    curl -LO "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz" && \
+    tar -zxf "helm-${HELM_VERSION}-linux-amd64.tar.gz" && \
+    install -o root -g root -m 0755 linux-amd64/helm /usr/local/bin/helm && \
+    rm -r helm*.tar.gz linux-amd64
+
+ARG USER
+ARG UID
+ARG GID
+RUN echo "USER=$USER, GID=$GID, UID=$UID" && \
+    addgroup -g $GID $USER && \
+    adduser -u $UID -G $USER -D -s /bin/bash $USER && \
+    addgroup $USER docker
+USER $USER

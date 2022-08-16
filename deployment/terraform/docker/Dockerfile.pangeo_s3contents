@@ -1,0 +1,8 @@
+ARG PANGEO_VERSION
+FROM pangeo/base-notebook:$PANGEO_VERSION
+
+RUN pip3 install s3contents xarray zarr geopandas matplotlib rechunker tqdm pyproj pyarrow fastparquet
+# RUN conda init
+# RUN conda activate notebook && \
+#     conda install -n notebook -y xarray zarr geopandas matplotlib rechunker tqdm pyproj
+COPY --chmod=444 jupyter_notebook_config.py /etc/jupyter/jupyter_notebook_config.py

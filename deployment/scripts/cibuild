@@ -1,0 +1,30 @@
+#!/bin/bash
+
+set -e
+
+if [[ -n "${NOAA_DEBUG}" ]]; then
+    set -x
+fi
+
+if [[ -n "${GIT_COMMIT}" ]]; then
+    GIT_COMMIT="${GIT_COMMIT:0:7}"
+else
+    GIT_COMMIT="$(git rev-parse --short HEAD)"
+fi
+
+DIR="$(dirname "$0")/../"
+
+function usage() {
+    echo -n \
+        "Usage: $(basename "$0")
+Build application for staging or a release.
+"
+}
+
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+    if [ "${1:-}" = "--help" ]; then
+        usage
+    else
+        docker-compose -f docker-compose.yml build --build-arg UID=$(id -u) --build-arg GID=$(id -g) --build-arg DOCKER_GID=$(getent group docker | awk -F: '{print $3}') terraform
+    fi
+fi

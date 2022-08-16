@@ -1,0 +1,32 @@
+enabled: true  # Enabling dask-gateway will install Dask Gateway as a dependency.
+# Futher Dask Gateway configuration goes here
+# See https://github.com/dask/dask-gateway/blob/master/resources/helm/dask-gateway/values.yaml
+gateway:
+  prefix: "/services/dask-gateway"  # Users connect to the Gateway through the JupyterHub service.
+  loglevel: INFO
+  auth:
+    type: jupyterhub  # Use JupyterHub to authenticate with Dask Gateway
+  extraConfig:
+    optionHandler: |
+      # see https://gateway.dask.org/cluster-options.html#server-configuration
+      from dask_gateway_server.options import Options, Integer, Float, String
+      def option_handler(options):
+          return {
+              "worker_memory": int(options.worker_memory * 2**30),
+          }
+      c.Backend.cluster_options = Options(
+          Integer("worker_memory", default=4, min=1, max=31, label="Worker memory (GB)"),
+          handler=option_handler,
+      )
+      c.KubeClusterConfig.idle_timeout = 1800
+  backend:
+    scheduler:
+      memory:
+        request: "16G"
+
+traefik:
+  service:
+    type: ClusterIP  # Access Dask Gateway through JupyterHub. To access the Gateway from outside JupyterHub, this must be changed to a `LoadBalancer`.
+
+rbac:
+  enabled: true
