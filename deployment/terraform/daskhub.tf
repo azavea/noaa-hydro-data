@@ -2,46 +2,6 @@ resource "random_id" "daskhub_token" {
   byte_length = 32
 }
 
-### Saving this as a reminder that there is a "proper" Daskhub helm chart that
-### we should endeavor to support directly one day
-# resource "helm_release" "daskhub" {
-#   depends_on       = [
-#     module.eks.kubeconfig,
-#     kubectl_manifest.karpenter_provisioner
-#   ]
-#   namespace        = "daskhub"
-#   create_namespace = true
-
-#   name       = "dhub"
-#   repository = "https://helm.dask.org/"
-#   chart      = "dask/daskhub"
-#   version    = "2022.5.0"
-
-#   values = [
-#     "${file("yaml/daskhub-values.yaml")}"
-#   ]
-
-#   set {
-#     name  = "jupyterhub.hub.services.dask-gateway.apiToken"
-#     value = random_id.daskhub_token.hex
-#   }
-
-#   set {
-#     name  = "jupyterhub.proxy.secretToken"
-#     value = random_id.daskhub_token.hex
-#   }
-
-#   set {
-#     name  = "dask-gateway.gateway.auth.jupyterhub.apiToken"
-#     value = random_id.daskhub_token.hex
-#   }
-
-#   set {
-#     name = "jupyterhub.hub.singleuser.startTimeout"
-#     value = 300
-#   }
-# }
-
 resource "helm_release" "jupyterhub" {
   depends_on       = [
     module.eks.kubeconfig,
@@ -81,11 +41,6 @@ resource "helm_release" "jupyterhub" {
     name = "singleuser.image.tag"
     value = var.pangeo_notebook_version
   }
-
-  # set {
-  #   name = "singleuser.extraPodAntiAffinity.required[0].beta.kubernetes.io/instance-type"
-  #   value = var.base_instance_type
-  # }
 
   set {
     name = "proxy.https.hosts[0]"

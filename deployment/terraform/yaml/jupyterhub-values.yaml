@@ -53,18 +53,6 @@ hub:
       else:
           print("dask-gateway service not found. Did you set jupyterhub.hub.services.dask-gateway.apiToken?")
 
-# ingress:
-#   enabled: true
-#   hosts:
-#     - jupyter.noaa.azavea.com
-#   annotations:
-#     kubernetes.io/ingress.class: alb
-#     alb.ingress.kubernetes.io/scheme: internet-facing
-
-# prePuller:
-#   continuous:
-#     enabled: false
-
 cull:
   enabled: true
   timeout: 900

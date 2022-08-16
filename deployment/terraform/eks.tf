@@ -6,14 +6,6 @@ module "eks" {
   cluster_endpoint_private_access = true
   cluster_endpoint_public_access  = true
 
-  # # IPV6
-  # # This might not be strictly necessary if we don't need ipv6
-  # cluster_ip_family = "ipv6"
-  #
-  # # TODO - remove this policy once AWS releases a managed version similar to
-  # # AmazonEKS_CNI_Policy (IPv4)
-  # create_cni_ipv6_iam_policy = var.first_cluster_deployment
-
   cluster_addons = {
     coredns = {
       resolve_conflicts = "OVERWRITE"
