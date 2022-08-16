@@ -92,6 +92,9 @@ module "eks" {
       min_size = 1
       max_size = 1
       desired_size = 1
+      labels = {
+        NodeGroup = "base"
+      }
     }
   }
 

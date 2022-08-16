@@ -1,11 +1,13 @@
 FROM quay.io/azavea/terraform:1.0.0
 
-ARG KUBECTL_VERSION
-ARG HELM_VERSION
-
+ARG DOCKER_GID
+RUN addgroup -g ${DOCKER_GID} docker
 RUN apk add --update docker openrc
 RUN pip3 install --upgrade awscli
 RUN rc-update add docker boot
+
+ARG KUBECTL_VERSION
+ARG HELM_VERSION
 RUN cd /tmp && \
     curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl" && \
     install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
@@ -21,5 +23,6 @@ ARG UID
 ARG GID
 RUN echo "USER=$USER, GID=$GID, UID=$UID" && \
     addgroup -g $GID $USER && \
-    adduser -u $UID -G $USER -D -s /bin/bash $USER
+    adduser -u $UID -G $USER -D -s /bin/bash $USER && \
+    addgroup $USER docker
 USER $USER

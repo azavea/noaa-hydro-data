@@ -61,6 +61,10 @@ hub:
 #     kubernetes.io/ingress.class: alb
 #     alb.ingress.kubernetes.io/scheme: internet-facing
 
+# prePuller:
+#   continuous:
+#     enabled: false
+
 cull:
   enabled: true
   timeout: 900
@@ -68,3 +72,13 @@ cull:
 singleuser:
   startTimeout: 300
   defaultUrl: "/lab"  # Use jupyterlab by default.
+  storage:
+    type: none
+  memory:
+    guarantee: 8G
+  extraNodeAffinity:
+    required:
+      - matchExpressions:
+          - key: created-by
+            operator: In
+            values: ["karpenter"]

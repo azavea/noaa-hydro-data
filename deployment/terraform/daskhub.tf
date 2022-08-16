@@ -82,6 +82,11 @@ resource "helm_release" "jupyterhub" {
     value = var.pangeo_notebook_version
   }
 
+  # set {
+  #   name = "singleuser.extraPodAntiAffinity.required[0].beta.kubernetes.io/instance-type"
+  #   value = var.base_instance_type
+  # }
+
   set {
     name = "proxy.https.hosts[0]"
     value = "jupyter.${var.r53_public_hosted_zone}"

@@ -51,6 +51,8 @@ resource "kubectl_manifest" "karpenter_provisioner" {
   metadata:
     name: default
   spec:
+    labels:
+      created-by: karpenter
     requirements:
       - key: karpenter.sh/capacity-type
         operator: In

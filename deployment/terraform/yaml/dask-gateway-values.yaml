@@ -8,18 +8,48 @@ gateway:
     type: jupyterhub  # Use JupyterHub to authenticate with Dask Gateway
   extraConfig:
     optionHandler: |
+      # see https://gateway.dask.org/cluster-options.html#server-configuration
       from dask_gateway_server.options import Options, Integer, Float, String
       def option_handler(options):
-          if ":" not in options.image:
-              raise ValueError("When specifying an image you must also provide a tag")
           return {
-              "image": options.image,
+              "worker_memory": int(options.worker_memory * 2**30),
           }
-      # c.Backend.cluster_options = Options(
-      #     String("image", default="pangeo/base-notebook:2022.05.18", label="Image"),
-      #     handler=option_handler,
-      # )
+      c.Backend.cluster_options = Options(
+          Integer("worker_memory", default=4, min=1, max=31, label="Worker memory (GB)"),
+          handler=option_handler,
+      )
       c.KubeClusterConfig.idle_timeout = 1800
+  backend:
+    scheduler:
+      memory:
+        request: "16G"
+    # worker:
+    #   extraPodConfig:
+    #     affinity:
+    #       nodeAffinity:
+    #         preferredDuringSchedulingIgnoredDuringExecution:
+    #           nodeSelectorTerms:
+    #             - matchExpressions:
+    #                 - key: "node.kubernetes.io/instance-type"
+    #                   operator: In
+    #                   values:
+    #                     - "r5.large"
+    #                     - "r5.xlarge"
+    #                     - "r5.2xlarge"
+    #                     - "r5.4xlarge"
+    #                     - "r5.8xlarge"
+    #                     - "r5.12xlarge"
+    #                     - "r5.16xlarge"
+    #                     - "r5.24xlarge"
+    #                     - "r5d.large"
+    #                     - "r5d.xlarge"
+    #                     - "r5d.2xlarge"
+    #                     - "r5d.4xlarge"
+    #                     - "r5d.8xlarge"
+    #                     - "r5d.12xlarge"
+    #                     - "r5d.16xlarge"
+    #                     - "r5d.24xlarge"
+
 traefik:
   service:
     type: ClusterIP  # Access Dask Gateway through JupyterHub. To access the Gateway from outside JupyterHub, this must be changed to a `LoadBalancer`.

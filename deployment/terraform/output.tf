@@ -9,3 +9,7 @@ output "cluster_name" {
 output "cluster_arn" {
   value = module.eks.cluster_arn
 }
+
+output "debug" {
+  value = module.eks
+}
