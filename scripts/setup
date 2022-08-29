@@ -17,6 +17,8 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     if [[ "${1:-}" == "--help" ]]; then
         usage
     else
+        pip3 install -U nbdev
+        nbdev_install_hooks
         ./scripts/update
     fi
 fi
