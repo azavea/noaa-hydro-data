@@ -1,0 +1,1 @@
+{"name":"sbt","version":"1.6.1","bspVersion":"2.0.0-M5","languages":["scala"],"argv":["/opt/openjdk-bin-8.332_p09/jre/bin/java","-Xms100m","-Xmx100m","-classpath","/home/jpolchlopek/.sbt/launchers/1.6.1/sbt-launch.jar","xsbt.boot.Boot","-bsp","--sbt-launch-jar=/home/jpolchlopek/.sbt/launchers/1.6.1/sbt-launch.jar"]}
