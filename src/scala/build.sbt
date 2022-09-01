@@ -7,9 +7,11 @@ scalaVersion := "2.12.12"
 libraryDependencies ++= Seq(
   "com.monovore" %% "decline" % "1.2.0",
   "edu.ucar" % "cdm" % "5.0.0-SNAPSHOT",
+  "ch.qos.logback" % "logback-classic" % "1.3.0",
   "com.amazonaws" % "aws-java-sdk-s3" % "1.11.92",
-  "org.apache.spark" %% "spark-sql" % "3.1.2" % Provided,
-  "org.apache.spark" %% "spark-hive" % "3.1.2" % Provided,
+  "org.apache.parquet" % "parquet-hadoop" % "1.8.1",
+  "org.apache.parquet" % "parquet-avro" % "1.8.1",
+  "org.apache.hadoop" % "hadoop-core" % "1.2.1",
   "org.scalatest" %% "scalatest" % "3.0.8" % Test,
   "org.scalactic" %% "scalactic" % "3.0.8" % Test,
   "org.typelevel" %% "spire" % "0.17.0"
