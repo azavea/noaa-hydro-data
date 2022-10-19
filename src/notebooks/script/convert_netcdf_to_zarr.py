@@ -2,6 +2,7 @@
 # coding: utf-8
 
 import os
+import numpy as np
 import xarray as xr
 import matplotlib.pyplot as plt
 
@@ -80,6 +81,7 @@ import matplotlib.pyplot as plt
 
 PREDICTIONS_DATADIR = '/opt/data/nwm-predictions'
 
+
 get_ipython().system("mkdir -p /opt/data/nwm-predictions && cd /opt/data/nwm-predictions && seq -f 'https://nomads.ncep.noaa.gov/pub/data/nccf/com/nwm/v2.2/nwm.20221017/short_range/nwm.t00z.short_range.channel_rt.f%03g.conus.nc' 1 18 | xargs -P 0 -n 1 wget -q")
 
 os.listdir(PREDICTIONS_DATADIR)
@@ -112,4 +114,12 @@ get_ipython().run_cell_magic('time', '', "ds.to_zarr(f'{PREDICTIONS_DATADIR}-cha
 # ### Compare Dataset Sizes
 
 get_ipython().system('du -sh /opt/data/*')
+
+
+# ### Check Data Correctness
+
+dsz = xr.open_dataset(f'{PREDICTIONS_DATADIR}-channel_rt.zarr')
+
+all(np.allclose(ds[v].to_numpy(), dsz[v].to_numpy(), equal_nan=True)
+    for v in ds.data_vars.keys() if len(ds[v].shape) > 0)
 
