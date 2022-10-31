@@ -95,6 +95,9 @@ ds = xr.open_dataset(f'{PREDICTIONS_DATADIR}/nwm.t00z.short_range.channel_rt.f00
 ds
 
 
+ds.streamflow
+
+
 ds['streamflow'].plot()
 
 
@@ -103,7 +106,7 @@ ds['streamflow'].plot()
 # Let's open the entire dataset, using [recommendations from XArray on reading multiple NetCDF files](https://docs.xarray.dev/en/stable/user-guide/io.html#reading-multi-file-datasets).
 # 
 
-get_ipython().run_cell_magic('time', '', "ds = xr.open_mfdataset(f'{PREDICTIONS_DATADIR}/*.nc',\n                       parallel=True,\n                       engine='h5netcdf',\n                       concat_dim='time',\n                       combine='nested',\n                       data_vars=['streamflow'],\n                       coords='minimal',\n                       compat='override'\n                      )\nds")
+get_ipython().run_cell_magic('time', '', "ds = xr.open_mfdataset(f'{PREDICTIONS_DATADIR}/*.nc',\n                       parallel=True,\n                       engine='h5netcdf',\n                       concat_dim='time',\n                       combine='nested',\n#                        data_vars=['streamflow'],\n                       coords='minimal',\n                       compat='override'\n                      )\nds")
 
 
 # Now let's convert it to Zarr.
@@ -124,21 +127,26 @@ all(np.allclose(ds[v].to_numpy(), dsz[v].to_numpy(), equal_nan=True)
     for v in ds.data_vars.keys() if len(ds[v].shape) > 0)
 
 
+dsz
+
+
+dsz.streamflow
+
+
 # # Examples Shownig Reading From S3
 # 
 # ## Reading NetCDF Files
 
-import s3fs
-import xarray as xr
+get_ipython().run_cell_magic('time', '', "\nimport s3fs\nimport xarray as xr\n\nfs = s3fs.S3FileSystem(anon=True)\ns3_glob_url = 's3://noaa-nwm-pds/nwm.20221030/short_range/nwm.t18z.short_range.channel_rt.*.conus.nc'\n\nremote_files = fs.glob(s3_glob_url)\nfileset = [fs.open(file) for file in remote_files]\n\nds = xr.open_mfdataset(\n                    fileset,\n                    engine='h5netcdf',\n#                     data_vars=['streamflow'],\n                    coords='minimal',\n                    compat='override')\nds")
 
-fs = s3fs.S3FileSystem(anon=True)
-s3_glob_url = 's3://noaa-nwm-pds/nwm.20221030/short_range/nwm.t18z.short_range.channel_rt.*.conus.nc'
 
-remote_files = fs.glob(s3_glob_url)
-fileset = [fs.open(file) for file in remote_files]
+get_ipython().run_cell_magic('time', '', "\nzarr_s3_url = 's3://noaa-hydro-data/noaa/zarr/nwm.20221030-shortrange-channel_rt.zarr'\nds.to_zarr(zarr_s3_url, mode='w')")
 
-ds = xr.open_mfdataset(fileset, engine='h5netcdf')
-ds
+
+get_ipython().run_cell_magic('time', '', '\ndsz = xr.open_dataset(zarr_s3_url)\ndsz')
+
+
+np.allclose(ds.streamflow.to_numpy(), dsz.streamflow.to_numpy(), equal_nan=True)
 
 
 # ## Reading Geopackages from S3
