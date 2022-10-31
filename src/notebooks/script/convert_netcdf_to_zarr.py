@@ -123,3 +123,39 @@ dsz = xr.open_dataset(f'{PREDICTIONS_DATADIR}-channel_rt.zarr')
 all(np.allclose(ds[v].to_numpy(), dsz[v].to_numpy(), equal_nan=True)
     for v in ds.data_vars.keys() if len(ds[v].shape) > 0)
 
+
+# # Examples Shownig Reading From S3
+# 
+# ## Reading NetCDF Files
+
+import s3fs
+import xarray as xr
+
+fs = s3fs.S3FileSystem(anon=True)
+s3_glob_url = 's3://noaa-nwm-pds/nwm.20221030/short_range/nwm.t18z.short_range.channel_rt.*.conus.nc'
+
+remote_files = fs.glob(s3_glob_url)
+fileset = [fs.open(file) for file in remote_files]
+
+ds = xr.open_mfdataset(fileset, engine='h5netcdf')
+ds
+
+
+# ## Reading Geopackages from S3
+# 
+# Note: This requires setting the `AWS_REQUESTER_PAYS` environment variable to `requester`, so we can access the `s3://noaa-nws-owp-fim` bucket.
+
+import geopandas as gpd
+
+s3_path = 's3://noaa-nws-owp-fim/hand_fim/inputs/nhdplus_vectors/2102/NHDFlowline2102.gpkg'
+
+# read_file can read directly from S3, as long as the AWS environment variables are set correctly
+g = gpd.read_file(s3_path)
+g
+
+
+s3_path = 's3://noaa-nws-owp-fim/hand_fim/inputs/wbd/WBD_National_GDB.gdb'
+
+g = gpd.read_file(s3_path, rows=10)
+g
+

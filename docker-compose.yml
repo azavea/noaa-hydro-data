@@ -18,6 +18,7 @@ services:
     image: noaa-hydro-data
     environment:
       - AWS_PROFILE=noaa
+      - AWS_REQUEST_PAYER=requester
     build:
       context: ./src
       dockerfile: Dockerfile
