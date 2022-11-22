@@ -1,0 +1,90 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: init-postgis-db-
+spec:
+  entrypoint: postgis-db-init
+  arguments:
+    parameters:
+    - name: target-database-name
+  templates:
+  - name: postgis-db-init
+    steps:
+    - - name: ensure-db
+        template: ensure-db-exists
+        arguments:
+          parameters:
+          - name: target-db-name
+            value: "{{workflow.parameters.target-database-name}}"
+
+  - name: ensure-db-exists
+    inputs:
+      parameters:
+      - name: target-db-name
+    script:
+      image: cheewai/py3-psycopg2
+      command: [python]
+      env:
+        - name: PGHOST
+          valueFrom:
+            secretKeyRef:
+              name: rds-credentials
+              key: host
+        - name: PGUSER
+          valueFrom:
+            secretKeyRef:
+              name: rds-credentials
+              key: username
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: rds-credentials
+              key: password
+      source: |
+        import os
+        import psycopg2 as pg
+        from psycopg2 import sql
+        import sys
+
+        pghost = os.environ['PGHOST']
+        pguser = os.environ['PGUSER']
+        pgpass = os.environ['PGPASSWORD']
+
+        try:
+          with pg.connect(
+            dbname = 'postgres',
+            user = pguser,
+            password = pgpass,
+            host = pghost,
+            port = 5432
+          ) as conn:
+            conn.autocommit = True
+            with conn.cursor() as cur:
+              cur.execute(
+                sql.SQL("SELECT 1 FROM pg_catalog.pg_database WHERE datname = '{{inputs.parameters.target-db-name}}'")
+              )
+              if cur.fetchone():
+                print(f"Database {{inputs.parameters.target-db-name}} exists, not creating DB")
+              else:
+                print(f"Database {{inputs.parameters.target-db-name}} not found, creating...")
+                cur.execute(
+                  sql.SQL("CREATE DATABASE {{inputs.parameters.target-db-name}}")
+                )
+
+          with pg.connect(
+            dbname = '{{inputs.parameters.target-db-name}}',
+            user = pguser,
+            password = pgpass,
+            host = pghost,
+            port = 5432
+          ) as conn:
+            conn.autocommit = True
+            with conn.cursor() as cur:
+              cur.execute(sql.SQL("CREATE EXTENSION IF NOT EXISTS postgis;"))
+
+        except Exception as e:
+          print(f"Failed: {e}")
+          sys.exit(1)
+
+        print("Success")
+        sys.exit(0)
