@@ -1,0 +1,50 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: ingest-gpkg-
+spec:
+  entrypoint: ogr2ogr-ingest
+  arguments:
+    parameters:
+    - name: gpkg-path
+      value: "/vsis3/nextgen-hydrofabric/v1.2/conus.gpkg"
+    - name: target-db
+      value: "hydrofabric"
+  templates:
+  - name: ogr2ogr-ingest
+    steps:
+    - - name: ogr2ogr-ingest
+        template: ogr2ogr-ingest-to-postgis
+        arguments:
+          parameters:
+          - name: src-path
+            value: "{{workflow.parameters.gpkg-path}}"
+          - name: target-db
+            value: "{{workflow.parameters.target-db}}"
+
+  - name: ogr2ogr-ingest-to-postgis
+    inputs:
+      parameters:
+      - name: src-path
+      - name: target-db
+    container:
+      image: osgeo/gdal
+      command: [sh,-c]
+      args:
+      - 'ogr2ogr -f PostgreSQL "PG:dbname={{inputs.parameters.target-db}} host=$PGHOST user=$PGUSER password=$PGPASSWORD" "{{inputs.parameters.src-path}}"'
+      env:
+        - name: PGHOST
+          valueFrom:
+            secretKeyRef:
+              name: rds-credentials
+              key: host
+        - name: PGUSER
+          valueFrom:
+            secretKeyRef:
+              name: rds-credentials
+              key: username
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: rds-credentials
+              key: password
