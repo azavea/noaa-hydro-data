@@ -4,7 +4,8 @@ import pandas as pd
 import xarray as xr
 
 
-gw = dask_gateway.Gateway(auth="jupyterhub")
+gw = dask_gateway.Gateway()
+print(gw.auth)
 
 opts = gw.cluster_options()
 opts.worker_memory = 10
