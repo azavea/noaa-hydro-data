@@ -1,0 +1,58 @@
+# inspired by https://raw.githubusercontent.com/pipekit/talk-demos/main/argocon-demos/2021-processing-petabytes-with-dask/dask_standard_cluster_workflow_template.yaml
+apiVersion: argoproj.io/v1alpha1
+#kind: ClusterWorkflowTemplate
+kind: Workflow
+metadata:
+  name: dask-distributed-task-workflow
+spec:
+  entrypoint: execute-dask-job
+  arguments:
+    parameters:
+      - name: script-location
+      - name: image
+        value: "pangeo/pangeo-notebook:2022.05.18"
+      - name: n-workers
+        value: "1"
+      - name: worker-mcpu
+        value: "500"
+      - name: worker-mem-gb
+        value: "2"
+      - name: scheduler-mcpu
+        value: "1000"
+      - name: scheduler-mem-gb
+        value: "4"
+
+  templates:
+    - name: execute-dask-job
+      inputs:
+        parameters:
+          - name: script-location
+          - name: image
+          - name: n-workers
+          - name: worker-mcpu
+          - name: worker-mem-gb
+          - name: scheduler-mcpu
+          - name: scheduler-mem-gb
+      script:
+        image: "{{inputs.parameters.image}}"
+        imagePullPolicy: Always
+        command: [bash]
+        env:
+          - name: DASK_GATEWAY__ADDRESS
+            value: http://traefik-dask-gateway/services/dask-gateway
+          - name: DASK_GATEWAY__PROXY_ADDRESS
+            value: gateway://traefik-dask-gateway:80
+          - name: DASK_GATEWAY__PUBLIC_ADDRESS
+            value: /sercices/dask-gateway
+          - name: JUPYTERHUB_API_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: auth-token
+                key: token
+        source: |
+          pwd
+          export
+          SCRIPT_URL={{inputs.parameter.script-location}}
+          SCRIPT_NAME=$(basename $SCRIPT_URL)
+          wget -q -o source.py $SCRIPT_URL
+          python source.py
