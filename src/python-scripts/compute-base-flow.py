@@ -9,10 +9,10 @@ import xarray as xr
 
 logger = logging.getLogger("DaskWorkflow")
 
-try:
-    gw = dask_gateway.Gateway(auth="jupyterhub")
-    logger.warning(f"Using auth of type {type(gw.auth)}")
+gw = dask_gateway.Gateway(auth="jupyterhub")
+logger.warning(f"Using auth of type {type(gw.auth)}")
 
+try:
     opts = gw.cluster_options()
     opts.worker_memory = 10
     if gw.list_clusters() == []:
