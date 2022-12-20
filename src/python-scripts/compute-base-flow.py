@@ -14,10 +14,10 @@ logger.warning(f"Using auth of type {type(gw.auth)}")
 
 try:
     opts = gw.cluster_options()
-    opts.worker_memory = 10
+    opts.worker_memory = 16
     if gw.list_clusters() == []:
         cluster = gw.new_cluster(opts)
-        cluster.scale(16)
+        cluster.scale(32)
     else:
         cluster = dask_gateway.GatewayCluster.from_name(gw.list_clusters()[0].name)
 
