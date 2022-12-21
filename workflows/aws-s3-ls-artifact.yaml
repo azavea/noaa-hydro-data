@@ -26,7 +26,10 @@ spec:
         artifacts:
           - name: save-s3-listing
             path: /tmp/tst.txt
-            s3: { 'endpoint': 's3.amazonaws.com', 'bucket': 'azavea-noaa-hydro-data', 'key': 'vl-scratch/s3-listing-{{=sprig.date("20060102",workflow.createTiemstamp)}}.txt.tar.gz' }
+            s3:
+              endpoint: 's3.amazonaws.com'
+              bucket: 'azavea-noaa-hydro-data'
+              key: 'vl-scratch/s3-listing-{{=sprig.date("20060102",workflow.createTiemstamp)}}.txt.tar.gz'
     - name: print-s3-listing
       inputs:
         artifacts: [ {'name': 'msg', 'path': '/tmp/tst.txt'} ] ## ensure that the name matches the artifacts.name in the steps!!!
