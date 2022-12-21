@@ -13,32 +13,26 @@ spec:
         - - name: print
             template: print-s3-listing
             arguments:
-              parameters:
-              - name: s3-file-list
-                value: "{{steps.list.outputs.result}}"
-      ## inputs: {}
-      ## outputs:
-      ##   artifacts:
-      ##     - name: s3-recursive-listing
-      ##       path: /tmp
-      ##       s3: { 'endpoint': 's3.amazaonaws.com', 'bucket': 'azavea-noaa-hydro-data', 'key': 'vl-scratch/s3-listing.txt.tar.gz' } ## artifacts are automaticall tarred and gzipped!
+              artifacts:
+              - name: msg
+                from: "{{steps.list.outputs.artifacts.save-s3-listing}}"
     - name: s3-listing
       container:
         name: amazon/aws-cli
         image: amazon/aws-cli
-        command: [ 'aws' ]
-        args: [ 's3','ls','--request-payer','requester','s3://{{workflow.parameters.s3-bucket}}/{{workflow.parameters.s3-key}}'] ## cannot use '--request-payer requester' as one argument!
+        command: [sh,-c]
+        args: [ ' aws s3 ls --request-payer requester s3://{{workflow.parameters.s3-bucket}}/{{workflow.parameters.s3-key}} | tee /tmp/tst.txt ']
       outputs:
         artifacts:
           - name: save-s3-listing
-            path: /tmp/tst.tx
-            s3: { 'endpoint': 's3.amazonaws.com', 'bucket': 'azavea-noaa-hydro-data', 'key': 'vl-scratch/s3-listing.txt.tar.gz' }
+            path: /tmp/tst.txt
+            s3: { 'endpoint': 's3.amazonaws.com', 'bucket': 'azavea-noaa-hydro-data', 'key': 'vl-scratch/s3-listing-{{=sprig.date("20060102",workflow.createTiemstamp)}}.txt.tar.gz' }
     - name: print-s3-listing
       inputs:
-        parameters: [ {'name': 's3-file-list' } ]
+        artifacts: [ {'name': 'msg', 'path': '/tmp/tst.txt'} ] ## ensure that the name matches the artifacts.name in the steps!!!
       container:
         image: alpine:latest
         command: [sh,-c]
-        args: ["echo result was: {{inputs.parameters.s3-file-list}}"]
+        args: ["cat /tmp/tst.txt"] ## TODO (vijay): figure out how to do "cat {{inputs.artifacts.path}}"
   ttlStrategy: { 'secondsAfterCompletion': 900 } ## Set this to higher value to retain pod for inspection!
   podGC: { 'strategy': 'OnPodCompletion' }
