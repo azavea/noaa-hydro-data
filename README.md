@@ -22,6 +22,7 @@ Here is a summary of the Jupyter [notebooks](src/notebooks/) in this repo.
 * [huc8_streamflow_query.ipynb](src/notebooks/huc8_streamflow_query.ipynb): Run benchmarks using HUC8 streamflow query
 * [rechunk_zarr_subset.ipynb](src/notebooks/rechunk_zarr_subset.ipynb): Save a subset of NWM and rechunk it to use in benchmarking experiments.
 * [convert_netcdf_to_zarr.ipynb](src/notebooks/convert_netcdf_to_zarr.ipynb): Convert a sample NWM Predictions dataset to Zarr. First do it by downloading the source files and converting locally, and then do it by reading from and writing to S3 directly.
+* [nwm_predictions_by_huc.ipynb](src/notebooks/nwm_predictions_by_huc.ipynb): Demonstrates fetching streamflow predictions for a HUC shape.
 
 ## Local Database Setup
 
