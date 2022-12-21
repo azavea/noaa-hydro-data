@@ -2,3 +2,6 @@ hydrotools==2.2.*
 rechunker==0.5.*
 nbautoexport==0.5.*
 s3fs==2022.10.*
+pygeoogc==0.13.7
+pygeohydro==0.13.7
+pynhd==0.13.7
