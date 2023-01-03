@@ -3,9 +3,19 @@ apiVersion: argoproj.io/v1alpha1
 #kind: ClusterWorkflowTemplate
 kind: Workflow
 metadata:
-  name: dask-distributed-task-workflow
+  generateName: dask-distributed-task-workflow-
 spec:
   entrypoint: execute-dask-job
+  securityContext:
+    fsGroup: 1000
+  volumeClaimTemplates:
+    - metadata:
+        name: scratch
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 128Gi
   arguments:
     parameters:
       - name: script-location
@@ -13,15 +23,14 @@ spec:
         value: "pangeo/pangeo-notebook:2022.05.18"
       - name: n-workers
         value: "1"
-      - name: worker-mcpu
-        value: "500"
+      - name: worker-cores
+        value: "1"
       - name: worker-mem-gb
         value: "2"
-      - name: scheduler-mcpu
-        value: "1000"
+      - name: scheduler-cores
+        value: "1"
       - name: scheduler-mem-gb
         value: "4"
-
   templates:
     - name: execute-dask-job
       inputs:
@@ -29,9 +38,9 @@ spec:
           - name: script-location
           - name: image
           - name: n-workers
-          - name: worker-mcpu
+          - name: worker-cores
           - name: worker-mem-gb
-          - name: scheduler-mcpu
+          - name: scheduler-cores
           - name: scheduler-mem-gb
       script:
         image: "{{inputs.parameters.image}}"
@@ -43,16 +52,30 @@ spec:
           - name: DASK_GATEWAY__PROXY_ADDRESS
             value: gateway://traefik-dask-gateway:80
           - name: DASK_GATEWAY__PUBLIC_ADDRESS
-            value: /sercices/dask-gateway
+            value: /services/dask-gateway
+          - name: DASK_GATEWAY__AUTH_TYPE
+            value: jupyterhub
           - name: JUPYTERHUB_API_TOKEN
             valueFrom:
               secretKeyRef:
                 name: auth-token
                 key: token
+          - name: DASK_OPTS__WORKER_MEMORY
+            value: {{inputs.parameters.worker-mem-gb}}
+          - name: DASK_OPTS__WORKER_CORES
+            value: {{inputs.parameters.worker-cores}}
+          - name: DASK_OPTS__N_WORKERS
+            value: {{inputs.parameters.n-workers}}
+          - name: DASK_OPTS__SCHEDULER_MEMORY
+            value: {{inputs.parameters.scheduler-mem-gb}}
+          - name: DASK_OPTS__SCHEDULER_CORES
+            value: {{inputs.parameters.scheduler-cores}}
+        volumeMounts:
+          - name: scratch
+            mountPath: /scratch
+        workingDir: "/scratch"
         source: |
           pwd
           export
-          SCRIPT_URL={{inputs.parameter.script-location}}
-          SCRIPT_NAME=$(basename $SCRIPT_URL)
-          wget -q -o source.py $SCRIPT_URL
+          wget -q --output-document=source.py "{{inputs.parameters.script-location}}"
           python source.py

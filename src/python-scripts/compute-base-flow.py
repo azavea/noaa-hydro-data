@@ -14,13 +14,12 @@ logger.warning(f"Using auth of type {type(gw.auth)}")
 
 try:
     opts = gw.cluster_options()
-    opts.worker_memory = 16
-    if gw.list_clusters() == []:
-        cluster = gw.new_cluster(opts)
-        cluster.scale(32)
-    else:
-        cluster = dask_gateway.GatewayCluster.from_name(gw.list_clusters()[0].name)
-
+    opts.worker_memory = int(os.environ['DASK_OPTS__WORKER_MEMORY'])
+    opts.worker_cores = int(os.environ['DASK_OPTS__WORKER_CORES'])
+    opts.scheduler_memory = int(os.environ['DASK_OPTS__SCHEDULER_MEMORY'])
+    opts.scheduler_cores = int(os.environ['DASK_OPTS__SCHEDULER_CORES'])
+    cluster = gw.new_cluster(opts)
+    cluster.scale(int(os.environ['DASK_OPTS__N_WORKERS']))
     client = cluster.get_client()
 
     logger.warning(f"Client dashboard: {client.dashboard_link}")
