@@ -53,7 +53,7 @@ spec:
             value: gateway://traefik-dask-gateway:80
           - name: DASK_GATEWAY__PUBLIC_ADDRESS
             value: /services/dask-gateway
-          - name: DASK_GATEWAY__AUTH_TYPE
+          - name: DASK_GATEWAY__AUTH__TYPE
             value: jupyterhub
           - name: JUPYTERHUB_API_TOKEN
             valueFrom:
