@@ -61,15 +61,15 @@ spec:
                 name: auth-token
                 key: token
           - name: DASK_OPTS__WORKER_MEMORY
-            value: {{inputs.parameters.worker-mem-gb}}
+            value: "{{inputs.parameters.worker-mem-gb}}"
           - name: DASK_OPTS__WORKER_CORES
-            value: {{inputs.parameters.worker-cores}}
+            value: "{{inputs.parameters.worker-cores}}"
           - name: DASK_OPTS__N_WORKERS
-            value: {{inputs.parameters.n-workers}}
+            value: "{{inputs.parameters.n-workers}}"
           - name: DASK_OPTS__SCHEDULER_MEMORY
-            value: {{inputs.parameters.scheduler-mem-gb}}
+            value: "{{inputs.parameters.scheduler-mem-gb}}"
           - name: DASK_OPTS__SCHEDULER_CORES
-            value: {{inputs.parameters.scheduler-cores}}
+            value: "{{inputs.parameters.scheduler-cores}}"
         volumeMounts:
           - name: scratch
             mountPath: /scratch
