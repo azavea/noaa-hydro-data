@@ -11,21 +11,26 @@ import logging
 import dask_gateway
 
 logger = logging.getLogger("DaskWorkflow")
-gw = dask_gateway.Gateway(auth="jupyterhub")
 
-try:
-    opts = gw.cluster_options()
-    opts.worker_memory = int(os.environ['DASK_OPTS__WORKER_MEMORY'])
-    opts.worker_cores = int(os.environ['DASK_OPTS__WORKER_CORES'])
-    opts.scheduler_memory = int(os.environ['DASK_OPTS__SCHEDULER_MEMORY'])
-    opts.scheduler_cores = int(os.environ['DASK_OPTS__SCHEDULER_CORES'])
-    cluster = gw.new_cluster(opts)
-    cluster.scale(int(os.environ['DASK_OPTS__N_WORKERS']))
-    client = cluster.get_client()
+def main():
+    gw = dask_gateway.Gateway(auth="jupyterhub")
 
-    logger.warning(f"Client dashboard: {client.dashboard_link}")
+    try:
+        opts = gw.cluster_options()
+        opts.worker_memory = int(os.environ['DASK_OPTS__WORKER_MEMORY'])
+        opts.worker_cores = int(os.environ['DASK_OPTS__WORKER_CORES'])
+        opts.scheduler_memory = int(os.environ['DASK_OPTS__SCHEDULER_MEMORY'])
+        opts.scheduler_cores = int(os.environ['DASK_OPTS__SCHEDULER_CORES'])
+        cluster = gw.new_cluster(opts)
+        cluster.scale(int(os.environ['DASK_OPTS__N_WORKERS']))
+        client = cluster.get_client()
 
-    # Client code goes here
-finally:
-    gw.stop_cluster(client.cluster.name)
+        logger.warning(f"Client dashboard: {client.dashboard_link}")
+
+        # Client code goes here
+    finally:
+        gw.stop_cluster(client.cluster.name)
+
+if __name__=="__main__":
+    main()
 ```
