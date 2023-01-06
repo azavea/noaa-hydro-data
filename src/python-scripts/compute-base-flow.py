@@ -1,22 +1,28 @@
-# Argo Workflow Archive
-
-This directory contains a collection of `Workflow` definitions for Argo to do tasks that we may want to repeat.  As we learn Argo better, we might be able to make better use of these resources for more complex tasks.
-
-## Dask task runner
-The provided `run-dask-job.yaml` allows for the specification of an HTTP(S) URL to a Python script which will be downloaded and run in a Dask cluster that will be configured to the scale dictated by the other job parameters.
-
-Scripts that wish to use this framework should use the following as the starting point for their code:
-```python
 import logging
+
+import dask
 import dask_gateway
+import numpy as np
+import pandas as pd
+import xarray as xr
+
 
 logger = logging.getLogger("DaskWorkflow")
 
 def client_code():
-    pass
+    with dask.config.set(**{'array.slicing.split_large_chunks': False}):
+        nwm_uri = 's3://noaa-nwm-retrospective-2-1-zarr-pds/chrtout.zarr'
+        ds = xr.open_zarr(nwm_uri)
+        recent = ds.where(ds['time'] >= np.datetime64('2010-01-01'), drop=True)
+        weekly_avg = recent.streamflow.groupby('time.week').mean().rename('mean')
+        weekly_std = recent.streamflow.groupby('time.week').std().rename('std')
+        base_flow = xr.merge([weekly_avg, weekly_std])
+
+        base_flow.to_zarr('s3://azavea-noaa-hydro-data-public/nwm-base-flow.zarr', mode='w')
 
 def main():
     gw = dask_gateway.Gateway(auth="jupyterhub")
+    logger.warning(f"Using auth of type {type(gw.auth)}")
 
     try:
         opts = gw.cluster_options()
@@ -34,6 +40,5 @@ def main():
     finally:
         gw.stop_cluster(client.cluster.name)
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()
-```
