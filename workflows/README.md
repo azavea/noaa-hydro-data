@@ -12,6 +12,9 @@ import dask_gateway
 
 logger = logging.getLogger("DaskWorkflow")
 
+def client_code():
+    pass
+
 def main():
     gw = dask_gateway.Gateway(auth="jupyterhub")
 
@@ -27,7 +30,7 @@ def main():
 
         logger.warning(f"Client dashboard: {client.dashboard_link}")
 
-        # Client code goes here
+        client_code()
     finally:
         gw.stop_cluster(client.cluster.name)
 
