@@ -1,0 +1,38 @@
+metadata:
+  generateName: transfer-to-volume-
+  namespace: daskhub
+spec:
+  arguments:
+    parameters:
+      - name: command
+        value: sync
+      - name: source-s3-uri
+      - name: dest-path
+        value: /opt/data
+  entrypoint: s3-command
+  volumes:
+  - name: noaa
+    persistentVolumeClaim:
+      claimName: noaa-hydro-data
+      readOnly: false
+  templates:
+    - name: s3-command
+      inputs:
+        parameters:
+          - name: src
+            value: '{{workflow.parameters.source-s3-uri}}'
+          - name: dest
+            value: '{{workflow.parameters.dest-path}}'
+          - name: cmd
+            value: '{{workflow.parameters.command}}'
+      container:
+        name: main
+        image: amazon/aws-cli
+        args:
+          - s3
+          - '{{inputs.parameters.cmd}}'
+          - '{{inputs.parameters.src}}'
+          - '{{inputs.parameters.dest}}'
+        volumeMounts:
+        - name: noaa
+          mountPath: /opt/data
