@@ -1,0 +1,20 @@
+metadata:
+  generateName: read-from-volume-
+  namespace: daskhub
+spec:
+  entrypoint: tree
+  volumes:
+  - name: noaa-ro
+    persistentVolumeClaim:
+      claimName: noaa-hydro-data
+      readOnly: true
+  templates:
+    - name: tree
+      container:
+        name: main
+        image: iankoulski/tree
+        args:
+          - /opt/data
+        volumeMounts:
+        - name: noaa-ro
+          mountPath: /opt/data
