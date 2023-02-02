@@ -1,0 +1,64 @@
+metadata:
+  generateName: fim-inundation-
+  namespace: daskhub
+spec:
+  entrypoint: fim
+  arguments:
+    parameters:
+      - name: huc
+        value: 12020001
+      - name: dataset
+        value: 3dep_test_1202_10m_FR
+  volumeClaimTemplates:
+    - metadata:
+        name: scratch
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: gp2
+        volumeMode: Filesystem
+        resources:
+          requests:
+            storage: 512Gi
+  volumes:
+  - name: noaa-ro
+    persistentVolumeClaim:
+      claimName: noaa-hydro-data
+      storageClassName: efs-sc
+      readOnly: true
+  templates:
+  - name: fim
+    inputs:
+      parameters:
+      - name: huc
+        value: '{{workflow.parameters.huc}}'
+      - name: dataset
+        value: '{{workflow.parameters.dataset}}'
+    nodeSelector:
+      node-type: worker
+    container:
+      name: main
+      image: 564456820271.dkr.ecr.us-east-1.amazonaws.com/noaa-fim:20230201
+      args:
+      - /foss_fim/tools/inundation.py
+      - -r
+      -  /opt/data/fim/{{inputs.parameters.dataset}}/{{inputs.parameters.huc}}/rem_zeroed_masked.tif
+      - -c
+      - /opt/data/fim/{{inputs.parameters.dataset}}/{{inputs.parameters.huc}}/gw_catchments_reaches_filtered_addedAttributes.tif
+      - -b
+      - /opt/data/fim/{{inputs.parameters.dataset}}/{{inputs.parameters.huc}}/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg
+      - -t
+      - /opt/data/fim/{{inputs.parameters.dataset}}/{{inputs.parameters.huc}}/hydroTable.csv
+      - -f
+      - /opt/data/fim/ble_huc_{{inputs.parameters.huc}}_flows_500yr.csv
+      - -i
+      - /opt/data/fim/testing_inundation_fr_500yr_{{inputs.parameters.huc}}.tif
+      resources:
+        requests:
+          memory: 16Gi
+          cpu: 2000m
+      volumeMounts:
+      - name: noaa-ro
+        mountPath: /opt/data
+      - name: scratch
+        mountPath: /scratch
+      workingDir: "/scratch"

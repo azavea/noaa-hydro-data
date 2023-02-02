@@ -1,12 +1,16 @@
 metadata:
-  generateName: read-from-volume-
+  generateName: volume-contents-
   namespace: daskhub
 spec:
   entrypoint: tree
+  arguments:
+    parameters:
+    - name: claim-name
+      value: noaa-hydro-data
   volumes:
   - name: noaa-ro
     persistentVolumeClaim:
-      claimName: noaa-hydro-data
+      claimName: {{workflow.parameters.claim-name}}
       readOnly: true
   templates:
     - name: tree
@@ -14,6 +18,7 @@ spec:
         name: main
         image: iankoulski/tree
         args:
+          - -pug
           - /opt/data
         volumeMounts:
         - name: noaa-ro
