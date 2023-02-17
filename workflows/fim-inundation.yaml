@@ -2,6 +2,8 @@ metadata:
   generateName: fim-inundation-
   namespace: daskhub
 spec:
+  securityContext:
+    privileged: true
   entrypoint: fim
   arguments:
     parameters:
@@ -9,6 +11,10 @@ spec:
         value: 12020001
       - name: dataset
         value: 3dep_test_1202_10m_FR
+      - name: destination-bucket
+        value: noaa-hydro-data
+      - name: destination-prefix
+        value: fim
   volumeClaimTemplates:
     - metadata:
         name: scratch
@@ -33,25 +39,26 @@ spec:
         value: '{{workflow.parameters.huc}}'
       - name: dataset
         value: '{{workflow.parameters.dataset}}'
+      - name: dest_bucket
+        value: '{{workflow.parameters.destination-bucket}}'
+      - name: dest_prefix
+        value: '{{workflow.parameters.destination-prefix}}'
     nodeSelector:
       node-type: worker
     container:
       name: main
-      image: 564456820271.dkr.ecr.us-east-1.amazonaws.com/noaa-fim:20230201
+      image: 564456820271.dkr.ecr.us-east-1.amazonaws.com/noaa-fim:20230217
       args:
-      - /foss_fim/tools/inundation.py
-      - -r
-      -  /opt/data/fim/{{inputs.parameters.dataset}}/{{inputs.parameters.huc}}/rem_zeroed_masked.tif
-      - -c
-      - /opt/data/fim/{{inputs.parameters.dataset}}/{{inputs.parameters.huc}}/gw_catchments_reaches_filtered_addedAttributes.tif
-      - -b
-      - /opt/data/fim/{{inputs.parameters.dataset}}/{{inputs.parameters.huc}}/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg
-      - -t
-      - /opt/data/fim/{{inputs.parameters.dataset}}/{{inputs.parameters.huc}}/hydroTable.csv
-      - -f
-      - /opt/data/fim/ble_huc_{{inputs.parameters.huc}}_flows_500yr.csv
-      - -i
-      - /opt/data/fim/testing_inundation_fr_500yr_{{inputs.parameters.huc}}.tif
+      - >-
+        /foss_fim/tools/inundation.py
+        -r /opt/data/fim/{{inputs.parameters.dataset}}/{{inputs.parameters.huc}}/rem_zeroed_masked.tif
+        -c /opt/data/fim/{{inputs.parameters.dataset}}/{{inputs.parameters.huc}}/gw_catchments_reaches_filtered_addedAttributes.tif
+        -b /opt/data/fim/{{inputs.parameters.dataset}}/{{inputs.parameters.huc}}/gw_catchments_reaches_filtered_addedAttributes_crosswalked.gpkg
+        -t /opt/data/fim/{{inputs.parameters.dataset}}/{{inputs.parameters.huc}}/hydroTable.csv
+        -f /opt/data/fim/ble_huc_{{inputs.parameters.huc}}_flows_500yr.csv
+        -i /scratch/testing_inundation_fr_500yr_{{inputs.parameters.huc}}.tif
+        ;
+        aws s3 sync /scratch s3://{{inputs.parameters.dest_bucket}}/{{inputs.parameters.dest_prefix}}
       resources:
         requests:
           memory: 16Gi
