@@ -16,20 +16,21 @@ spec:
       readOnly: false
   templates:
   - name: unpack
+    inputs:
+      parameters:
+      - name: src
+        value: '{{workflow.parameters.source-file}}'
+      - name: dst
+        value: '{{workflow.parameters.destination}}'
     container:
       name: main
       image: ghcr.io/crazy-max/7zip
-      inputs:
-        parameters:
-        - name: src
-          value: '{{workflow.parameters.source-file}}'
-        - name: dst
-          value: '{{workflow.parameters.destination}}'
       args:
         - 7za
         - x
-        - {{inputs.parameters.src}}
-        - -o{{inputs.parameters.dst}}
+        - -y
+        - '{{inputs.parameters.src}}'
+        - '-o{{inputs.parameters.dst}}'
       volumeMounts:
       - name: noaa
         mountPath: /opt/data
