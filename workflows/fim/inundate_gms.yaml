@@ -1,0 +1,192 @@
+metadata:
+  generateName: fim-inundation-gms-
+  namespace: daskhub
+spec:
+  serviceAccountName: noaa-workflow
+  # securityContext:
+  #   privileged: true
+  entrypoint: fim
+  arguments:
+    parameters:
+      - name: hucfile-location
+        value: s3://noaa-hydro-data/jp-scratch/hucs-test.json
+      - name: hand-s3-location
+        value: s3://noaa-nws-owp-fim/hand_fim/fim_4_0_18_0/
+      - name: destination-bucket
+        value: noaa-hydro-data
+      - name: destination-prefix
+        value: fim-gms
+      - name: fim-image
+        value: 564456820271.dkr.ecr.us-east-1.amazonaws.com/noaa-fim:20230217
+  volumes:
+  - name: noaa
+    persistentVolumeClaim:
+      claimName: noaa-hydro-data
+      readOnly: false
+  templates:
+  - name: fim
+    steps:
+    - - name: prepare-environment
+        inline:
+          script:
+            image: bash:5.2
+            command: [bash]
+            source: |
+              [ ! -d "/shared/fim/hand-cache" ] && mkdir -pv /shared/fim/hand-cache && chown 1000:1000 /shared/fim/hand-cache || echo "hand-cache exists" ;
+              [ ! -d "/shared/fim/forecasts" ] && mkdir -pv /shared/fim/forecasts && chown 1000:1000 /shared/fim/forecasts || echo "forecasts exists" ;
+              [ ! -d "/shared/fim/maps" ] && mkdir -pv /shared/fim/maps && chown 1000:1000 /shared/fim/maps || echo "maps exists"
+            volumeMounts:
+            - name: noaa
+              mountPath: /shared
+
+    - - name: get-hucs
+        inline:
+          script:
+            image: amazon/aws-cli:2.11.0
+            command: [ bash ]
+            source: |
+              aws s3 cp {{workflow.parameters.hucfile-location}} -
+
+    - - name: generate-mosaic
+        template: process-huc
+        withParam: "{{steps.get-hucs.outputs.result}}"
+        arguments:
+          parameters:
+          - name: huc
+            value: "{{item}}"
+
+  - name: process-huc
+    inputs:
+      parameters:
+      - name: huc
+    steps:
+    - - name: ensure-huc-in-cache
+        inline:
+          script:
+            image: amazon/aws-cli:2.11.0
+            command: [bash]
+            volumeMounts:
+            - name: noaa
+              mountPath: /shared
+            source: |
+              set -x ;
+              [ ! -d "/shared/fim/hand-cache/{{inputs.parameters.huc}}" -o -z "$(ls -A /shared/fim/hand-cache/{{inputs.parameters.huc}})" ] && aws s3 sync --request-payer requester {{workflow.parameters.hand-s3-location}}{{inputs.parameters.huc}} /shared/fim/hand-cache/{{inputs.parameters.huc}} && chown 1000:1000 --recursive /shared/fim/hand-cache/{{inputs.parameters.huc}} || echo "HAND data for HUC {{inputs.parameters.huc}} already cached" ;
+              [ ! -d "/shared/fim/forecasts/{{inputs.parameters.huc}}" ] && mkdir -pv /shared/fim/forecasts/{{inputs.parameters.huc}} && chown 1000:1000 /shared/fim/forecasts/{{inputs.parameters.huc}} || echo "Forecast dir for {{inputs.parameters.huc}} already exists" ;
+              [ ! -d "/shared/fim/maps/{{inputs.parameters.huc}}" ] && mkdir -pv /shared/fim/maps/{{inputs.parameters.huc}} && chown 1000:1000 /shared/fim/maps/{{inputs.parameters.huc}} || echo "Map dir for {{inputs.parameters.huc}} already exists"
+
+
+    - - name: collect-forecast
+        inline:
+          script:
+            image: python:3.10
+            command: [ python ]
+            volumeMounts:
+            - name: noaa
+              mountPath: /shared
+            env:
+              - name: PGHOST
+                valueFrom:
+                  secretKeyRef:
+                    name: rds-credentials
+                    key: host
+              - name: PGUSER
+                valueFrom:
+                  secretKeyRef:
+                    name: rds-credentials
+                    key: username
+              - name: PGPASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: rds-credentials
+                    key: password
+            source: |
+              import os
+              os.system("pip install -qqq psycopg2 h5py s3fs pandas")
+
+              import h5py
+              import numpy as np
+              import pandas as pd
+              import psycopg2
+              from s3fs import S3FileSystem
+              from datetime import datetime, timedelta
+
+              huc_string = '{{inputs.parameters.huc}}'
+
+              with psycopg2.connect(database='nwm_huc') as conn:
+                with conn.cursor() as cur:
+                  cur.execute("""
+                    SELECT comid
+                    FROM crosswalk
+                    WHERE huc8=%(huc)s
+                  """, {
+                    "huc": huc_string
+                  })
+                  reaches = set([x[0] for x in cur.fetchall()])
+
+              target_time = datetime.now() - timedelta(hours=2)
+              nwm_uri = target_time.strftime('s3://noaa-nwm-pds/nwm.%Y%m%d/short_range/nwm.t%Hz.short_range.channel_rt.f001.conus.nc')
+              fs = S3FileSystem(anon=True)
+              nwm = h5py.File(fs.open(nwm_uri), 'r')
+              ids = np.array(nwm['feature_id'])
+
+              [ixs, feature_ids] = list(zip(*[(i,x) for (i,x) in enumerate(ids) if x in reaches]))
+              discharge = nwm['streamflow'][list(ixs)]
+
+              pd.DataFrame(zip(feature_ids, discharge), columns=['feature_id', 'discharge']).to_csv(f'/shared/fim/forecasts/{huc_string}/forecast_001.csv')
+
+    - - name: identify-level-paths
+        inline:
+          script:
+            image: bash:5.2
+            command: [ bash ]
+            volumeMounts:
+            - name: noaa
+              mountPath: /shared
+            source: |
+              apk add -q sed ;
+              cat /shared/fim/hand-cache/{{inputs.parameters.huc}}/branch_id.lst | sed '/^0$/d;s/^\([0-9]*\)$/"\1"/' | sed -z 's/\n/,/g' | sed 's/^\(.*[^,]\),\?/[\1]/'
+
+    - - name: generate-lp-tiff
+        withParam: "{{steps.identify-level-paths.outputs.result}}"
+        inline:
+          securityContext:
+            runAsGroup: 1000
+            runAsUser: 1000
+          script:
+            image: '{{workflow.parameters.fim-image}}'
+            command: [bash]
+            nodeSelector:
+              node-type: worker
+            volumeMounts:
+            - name: noaa
+              mountPath: /shared
+            source: |
+              /foss_fim/tools/inundation.py \
+              -r /shared/fim/hand-cache/{{inputs.parameters.huc}}/branches/{{item}}/rem_zeroed_masked_{{item}}.tif \
+              -c /shared/fim/hand-cache/{{inputs.parameters.huc}}/branches/{{item}}/gw_catchments_reaches_filtered_addedAttributes_{{item}}.tif \
+              -b /shared/fim/hand-cache/{{inputs.parameters.huc}}/branches/{{item}}/gw_catchments_reaches_filtered_addedAttributes_crosswalked_{{item}}.gpkg \
+              -t /shared/fim/hand-cache/{{inputs.parameters.huc}}/branches/{{item}}/hydroTable_{{item}}.csv \
+              -f /shared/fim/forecasts/{{inputs.parameters.huc}}/forecast_001.csv \
+              -i /shared/fim/maps/{{inputs.parameters.huc}}/nwm_short_range_f001_{{inputs.parameters.huc}}_branch_{{item}}.tif
+        outputs:
+          parameters:
+          - name: branch
+            value: '{{item}}'
+
+    - - name: collect-mosaic
+        inputs:
+          parameters:
+          - name: branches
+        inline:
+          securityContext:
+            runAsGroup: 1000
+            runAsUser: 1000
+          script:
+            image: '{{workflow.parameters.fim-image}}'
+            command: [ python ]
+            nodeSelector:
+              node-type: worker
+            volumeMounts:
+            - name: noaa
+              mountPath: /shared
+            source: |
