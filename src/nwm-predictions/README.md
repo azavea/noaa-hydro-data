@@ -31,7 +31,28 @@ Once the Kerchunk files are available, we run the same analysis as before in the
 
 ## Comparison
 
+All of these notebooks were executed on Azavea's JupyterHub installation, which run on `r5.xlarge` pods. These have 4 CPU cores, 32GB of RAM, and have proximity to the S3 buckets given that they are running on AWS, thus can transfer data at very high speeds ~100Mbps.
+
+This is a table of the time different blocks took to execute:
+
+| Block                                        | NetCDF | Zarr   | Kerchunk |
+|----------------------------------------------|--------|--------|----------|
+| Fetch the NWM Short Range Forecast           | 1m 55s | 5m 57s | 1m 46s   |
+| Pick a single feature to analyze             | 25s    | 2m 26s | 36s      |
+| Average deviation for every reach in the HUC | 2m 51s | 4m 28s | 3m 4s    |
+
+Here's the peak RAM use and total network transfer in each case:
+
+|                     | NetCDF  | Zarr    | Kerchunk |
+|---------------------|---------|---------|----------|
+| Total Data Transfer | 2.13 GB | 2.71 GB | 1.97 GB  |
+| Peak RAM Usage      | 8 GB    | 9 GB    | 13 GB    |
+
+We did note that network access from the `noaa-nwm-pds` bucket was much faster than that from the `azavea-noaa-hydro-data` bucket, which likely contributes the extra time observed for the Zarr case which fetches all its data from the latter. If this discrepancy is fixed, the above tables will be updated with new values.
+
 ## Conclusion
+
+As observed from the tables above, both Zarr and Kerchunk use extra resources and do not offer significant speed up or lower resource utilization compared to reading the original NetCDF files. This, combined with the fact that the recency of data is very valuable when it comes to forecast, accessing the source files directly is preferable to a transformed version which adds processing time.
 
 
 [1]: https://water.noaa.gov/about/output_file_contents
