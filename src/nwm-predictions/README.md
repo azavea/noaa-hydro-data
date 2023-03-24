@@ -9,7 +9,7 @@ The notebooks in this folder answer two questions:
 
 ## Analyzing Change in Streamflow Predictions Over Time
 
-This is done in the first notebook: [1_evaluating_nwm_streamflow_predictions_netcdf][2]. This picks a HUC to analyze, and fetches all the NHD streams therein. Then it fetches the NWM Predictions for a certain date, from the NetCDF files in the `noaa-nwm-pds` S3 bucket, and intersects the NWM features with the NHD comids. Once we have this subset, we analyze it.
+This is done in the first notebook: [1_evaluating_nwm_streamflow_predictions_netcdf][2]. This picks a HUC to analyze, and fetches all the NHD streams therein. Then it fetches the NWM Predictions for a certain date, from the NetCDF files in the `noaa-nwm-pds` S3 bucket, and intersects the NWM features with the NHD comids. Once we have this subset, we analyze it. The data is opened with xarray's `xr.open_mfdataset` method, which can open a dataset spread across multiple files.
 
 First we pick a single stream to analyze. For that stream, we look at each of the short range predictions, and chart how those predictions change over 24 hours. We graph the standard deviation per hour, and also calculate the average deviation for that stream.
 
@@ -29,30 +29,44 @@ We create these metadata JSON files, one per NetCDF file, in the fourth notebook
 
 Once the Kerchunk files are available, we run the same analysis as before in the fifth notebook: [5_evaluating_nwm_streamflow_predictions_kerchunk][7], with the key difference again being in the _Fetch the NWM Short Range Forecast_ block, which uses the Kerchunk files.
 
+## Doing the Analysis using a Combined Kerchunk file
+
+In the above case, with multiple JSON files for the dataset, it takes a long time to open them. It is much better to combine them using [Kerchunk's `MultiZarrToZarr` capability][8] into a single file, as done in the sixth notebook: [6_convert_nwm_predictions_to_kerchunk_combined][9], and took about 4 seconds. The combined file is saved to S3, and read in the seventh notebook: [7_evaluating_nwm_streamflow_predictions_kerchunk-combined][10].
+
+A key difference with this notebook is that because it reads from a single file, we use `xr.open_dataset` instead of `xr.open_mfdataset`. This allows for lazy reads, shifting most of the processing to happen later in the workflow when the data is actually used, rather than when the files are opened.
+
 ## Comparison
 
 All of these notebooks were executed on Azavea's JupyterHub installation, which run on `r5.xlarge` pods. These have 4 CPU cores, 32GB of RAM, and have proximity to the S3 buckets given that they are running on AWS, thus can transfer data at very high speeds ~100Mbps.
 
 This is a table of the time different blocks took to execute:
 
-| Block                                        | NetCDF | Zarr   | Kerchunk |
-|----------------------------------------------|--------|--------|----------|
-| Fetch the NWM Short Range Forecast           | 1m 55s | 5m 57s | 1m 46s   |
-| Pick a single feature to analyze             | 25s    | 2m 26s | 36s      |
-| Average deviation for every reach in the HUC | 2m 51s | 4m 28s | 3m 4s    |
+| Block                                                 | NetCDF | Zarr | Kerchunk | Kerchunk Combined |
+| ----------------------------------------------------- | ------ | ---- | -------- | ----------------- |
+| Fetch the NWM Short Range Forecast                    | 56s    | 42s  | 50s      | 381ms             |
+| Subset the dataset to only the streams within the HUC | 57s    | 60s  | 1m 15s   | 321ms             |
+| Average deviation for every reach in the HUC          | 945ms  | 1s   | 1.2s     | 24s               |
 
 Here's the peak RAM use and total network transfer in each case:
 
-|                     | NetCDF  | Zarr    | Kerchunk |
-|---------------------|---------|---------|----------|
-| Total Data Transfer | 2.13 GB | 2.71 GB | 1.97 GB  |
-| Peak RAM Usage      | 8 GB    | 9 GB    | 13 GB    |
+|                     | NetCDF  | Zarr    | Kerchunk | Kerchunk Combined |
+| ------------------- | ------- | ------- | -------- | ----------------- |
+| Total Data Transfer | 2.14 GB | 1.54 GB | 1.1 GB   | 1.74 GB           |
+| Peak RAM Usage      | 12 GB   | 9 GB    | 10 GB    | 750 MB            |
 
-We did note that network access from the `noaa-nwm-pds` bucket was much faster than that from the `azavea-noaa-hydro-data` bucket, which likely contributes the extra time observed for the Zarr case which fetches all its data from the latter. If this discrepancy is fixed, the above tables will be updated with new values.
+Here's the file size of the additional files generated, and the time it took:
+
+|                           | NetCDF | Zarr | Kerchunk | Kerchunk Combined |
+| ------------------------- | ------ | ---- | -------- | ----------------- |
+| Additional Data File Size | 0      | 8 GB | 0        | 0                 |
+| Metadata File Size        | 0      | 0    | 5 MB     | 5 MB + 356 KB     |
+| Time to Generate          | 0      | 17m  | 30s      | 30s + 4s          |
 
 ## Conclusion
 
-As observed from the tables above, both Zarr and Kerchunk use extra resources and do not offer significant speed up or lower resource utilization compared to reading the original NetCDF files. This, combined with the fact that the recency of data is very valuable when it comes to forecast, accessing the source files directly is preferable to a transformed version which adds processing time.
+The analysis time between NetCDF, Zarr, and Kerchunk access is roughly the same. The data transfer involved is lower in Kerchunk and Zarr than in NetCDF. The RAM usage is also comparable. Converting to Zarr creates a a lot of additional data, where Kerchunk creates a very small metadata file.
+
+In addition, when using the Kerchunk Combined variation, we see RAM usage dip to very low levels, adn the overall processing speed up a lot. Given its low resource use and low overhead, this is the recommended approach.
 
 
 [1]: https://water.noaa.gov/about/output_file_contents
@@ -62,3 +76,6 @@ As observed from the tables above, both Zarr and Kerchunk use extra resources an
 [5]: https://github.com/fsspec/kerchunk
 [6]: ./4_convert_nwm_predictions_to_kerchunk_single.ipynb
 [7]: ./5_evaluating_nwm_streamflow_predictions_kerchunk.ipynb
+[8]: https://fsspec.github.io/kerchunk/test_example.html#multi-file-jsons
+[9]: ./6_convert_nwm_predictions_to_kerchunk_combined.ipynb
+[10]: ./7_evaluating_nwm_streamflow_predictions_kerchunk-combined.ipynb
