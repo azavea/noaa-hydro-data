@@ -1,0 +1,328 @@
+metadata:
+  generateName: test-
+  namespace: argo
+spec:
+  serviceAccountName: noaa-workflow
+  entrypoint: kerchunkify
+  arguments:
+    parameters:
+    - name: nwm-short-range-base-url
+      value: "s3://noaa-nwm-pds"
+    - name: kerchunk-storage-base-url
+      value: "s3://azavea-noaa-hydro-data/kerchunk"
+    - name: combined-kerchunk-url
+      value: "s3://azavea-noaa-hydro-data/kerchunk/combined.json"
+  templates:
+  - name: kerchunkify
+    steps:
+    - - name: identify-diffs
+        inline:
+          nodeSelector:
+            node-type: worker
+          outputs:
+            artifacts:
+            - name: new-netcdf-files
+              path: /tmp/new-files.txt
+            - name: stale-json-files
+              path: /tmp/stale-files.txt
+            parameters:
+            - name: num-new
+              valueFrom:
+                path: /tmp/new-count.txt
+            - name: num-stale
+              valueFrom:
+                path: /tmp/stale-count.txt
+          script:
+            image: pangeo/pangeo-notebook:2023.05.18
+            resources:
+              limits:
+                cpu: "500m"
+                memory: "2Gi"
+            command: [python3]
+            source: |
+              import boto3
+              from botocore.client import BaseClient
+              from typing import Callable, List, Optional
+              from urllib.parse import urlparse
+
+              def get_listing(
+                  client: BaseClient,
+                  bucket: str,
+                  prefix: str='',
+                  subfolder: Optional[str] = None,
+                  filter_fn: Callable[[str], bool] = lambda x: True
+              ) -> List[str]:
+                  try:
+                      folders = [
+                        x['Prefix'] for x in
+                          client.list_objects_v2(
+                            Bucket=bucket,
+                            Prefix=prefix,
+                            Delimiter='/'
+                          )['CommonPrefixes']
+                      ]
+                  except KeyError:
+                      return []
+                  chunks = filter(
+                    lambda chnk: 'Contents' in chnk,
+                    [client.list_objects_v2(
+                      Bucket=bucket,
+                      Prefix=f"{f}{subfolder}/"
+                    ) for f in folders]
+                  )
+                  return [
+                    x['Key']
+                    for chunk in chunks
+                    for x in chunk['Contents']
+                    if filter_fn(x['Key'])
+                  ]
+
+              def index_from_path(p: str):
+                  trimmed = p[:p.rfind('.')]
+                  return "/".join(trimmed.split("/")[-3:])
+
+              client = boto3.client('s3')
+              dest = urlparse('{{workflow.parameters.kerchunk-storage-base-url}}')
+              nwm_short_range_list = get_listing(
+                client,
+                "noaa-nwm-pds",
+                subfolder="short_range",
+                filter_fn=lambda x: 'channel_rt' in x and x.endswith('.nc')
+              )
+              kerchunked_file_list = get_listing(
+                client,
+                bucket=dest.netloc,
+                prefix=f"{dest.path[1:]}/",
+                subfolder="short_range"
+              )
+
+              source_keys = set(map(index_from_path, nwm_short_range_list))
+              destination_keys = set(map(index_from_path, kerchunked_file_list))
+
+              to_create = list(filter(
+                lambda f: index_from_path(f) not in destination_keys,
+                nwm_short_range_list
+              ))
+              to_delete = list(filter(
+                lambda f: index_from_path(f) not in source_keys,
+                kerchunked_file_list
+              ))
+
+              print({
+                  "new-netcdf-files": to_create,
+                  "num-new": len(to_create),
+                  "stale-json-files": to_delete,
+                  "num-stale": len(to_delete)
+              })
+
+              with open("/tmp/new-files.txt", "w") as f:
+                f.write('\n'.join(to_create))
+              with open("/tmp/stale-files.txt", "w") as f:
+                f.write('\n'.join(to_delete))
+              with open("/tmp/new-count.txt", "w") as f:
+                f.write(str(len(to_create)))
+              with open("/tmp/stale-count.txt", "w") as f:
+                f.write(str(len(to_delete)))
+
+    - - name: create-individual-kerchunks
+        arguments:
+          artifacts:
+          - name: new-netcdfs
+            from: "{{steps.identify-diffs.outputs.artifacts.new-netcdf-files}}"
+          parameters:
+          - name: num-netcdfs
+            value: "{{steps.identify-diffs.outputs.parameters.num-new}}"
+          - name: nwm-base-url
+            value: "{{workflow.parameters.nwm-short-range-base-url}}"
+          - name: json-store-base-url
+            value: "{{workflow.parameters.kerchunk-storage-base-url}}"
+        template: create-new-single-kerchunks
+
+      - name: clear-stale-jsons
+        arguments:
+          artifacts:
+          - name: stale-jsons
+            from: "{{steps.identify-diffs.outputs.artifacts.stale-json-files}}"
+          parameters:
+          - name: num-jsons
+            value: "{{steps.identify-diffs.outputs.parameters.num-stale}}"
+          - name: json-store-base-url
+            value: "{{workflow.parameters.kerchunk-storage-base-url}}"
+        template: delete-stale-jsons
+
+    - - name: create-combined-kerchunk
+        arguments:
+          parameters:
+          - name: json-store-base-url
+            value: "{{workflow.parameters.kerchunk-storage-base-url}}"
+          - name: combined-kerchunk-url
+            value: "{{workflow.parameters.combined-kerchunk-url}}"
+        template: generate-combined-kerchunk
+
+  - name: create-new-single-kerchunks
+    nodeSelector:
+      node-type: worker
+    inputs:
+      artifacts:
+      - name: new-netcdfs
+        path: /tmp/new-netcdfs.txt
+      parameters:
+      - name: num-netcdfs
+      - name: nwm-base-url
+      - name: json-store-base-url
+    script:
+      image: pangeo/pangeo-notebook:2023.05.18
+      resources:
+        limits:
+          cpu: "500m"
+          memory: "2Gi"
+      command: [python3]
+      source: |
+        import json, os, s3fs
+        from urllib.parse import urlparse
+        from kerchunk.hdf import SingleHdf5ToZarr
+
+        def generate_kerchunk(fs, netcdf):
+            netcdf = netcdf.strip()
+            with fs.open(netcdf, mode='rb', anon=True) as ncfile:
+                out_prefix = urlparse(netcdf).path[1:]
+                json_url = f'{{inputs.parameters.json-store-base-url}}/{out_prefix[:-3]}.json'
+                with fs.open(json_url, mode='wb') as outfile:
+                    print(f"Writing to {json_url}")
+                    outfile.write(
+                        json.dumps(
+                            SingleHdf5ToZarr(ncfile, netcdf).translate()
+                        ).encode()
+                    )
+                    return json_url
+
+        with open("/tmp/new-netcdfs.txt") as f:
+            files = f.readlines()
+        print(f"Seeing {len(files)} new netcdf files; expected {{inputs.parameters.num-netcdfs}}")
+
+        fs = s3fs.S3FileSystem()
+        for filename in files:
+          try:
+            generate_kerchunk(fs, f"{{inputs.parameters.nwm-base-url}}/{filename}")
+          except FileNotFoundError as e:
+            print(f"Did not find {filename}!  Exception was {e}")
+
+  - name: delete-stale-jsons
+    nodeSelector:
+      node-type: worker
+    inputs:
+      artifacts:
+      - name: stale-jsons
+        path: /tmp/stale-jsons.txt
+      parameters:
+      - name: json-store-base-url
+      - name: num-jsons
+    script:
+      image: pangeo/pangeo-notebook:2023.05.18
+      resources:
+        limits:
+          cpu: "500m"
+          memory: "2Gi"
+      command: [python3]
+      source: |
+        import boto3
+        from urllib.parse import urlparse
+
+        with open("/tmp/stale-jsons.txt") as f:
+          files = f.readlines()
+        print(f"Seeing {len(files)} stale JSON files; expected {{inputs.parameters.num-jsons}}")
+
+        client = boto3.client("s3")
+        errors = []
+        while len(files) > 0:
+          chunk = files[0:min(1000,len(files))]
+          files = files[min(1000,len(files)):]
+          response = client.delete_objects(
+            Bucket=urlparse("{{inputs.parameters.json-store-base-url}}").netloc,
+            Delete={
+              "Objects": [{"Key": f.strip()} for f in chunk]
+            }
+          )
+          if 'Errors' in response:
+            errors.extend(response['Errors'])
+
+        print("Error report:\n", errors)
+
+  - name: generate-combined-kerchunk
+    nodeSelector:
+      node-type: worker
+    inputs:
+      parameters:
+      - name: json-store-base-url
+      - name: combined-kerchunk-url
+    script:
+      image: pangeo/pangeo-notebook:2023.05.18
+      resources:
+        limits:
+          cpu: "500m"
+          memory: "2Gi"
+      command: [python3]
+      source: |
+        import boto3
+        from botocore.client import BaseClient
+        import json
+        from kerchunk.combine import MultiZarrToZarr
+        import s3fs
+        from typing import Callable, List, Optional
+        from urllib.parse import urlparse
+
+        def get_listing(
+            client: BaseClient,
+            bucket: str,
+            prefix: str='',
+            subfolder: Optional[str] = None,
+        ) -> List[str]:
+            try:
+                folders = [
+                  x['Prefix'] for x in
+                    client.list_objects_v2(
+                      Bucket=bucket,
+                      Prefix=prefix,
+                      Delimiter='/'
+                    )['CommonPrefixes']
+                ]
+            except KeyError:
+                return []
+            chunks = filter(
+              lambda chnk: 'Contents' in chnk,
+              [client.list_objects_v2(
+                Bucket=bucket,
+                Prefix=f"{f}{subfolder}/"
+              ) for f in folders]
+            )
+            return [
+              x['Key']
+              for chunk in chunks
+              for x in chunk['Contents']
+            ]
+
+        client = boto3.client('s3')
+        dest = urlparse('{{inputs.parameters.json-store-base-url}}')
+        single_json_file_list = get_listing(
+          client,
+          bucket=dest.netloc,
+          prefix=f"{dest.path[1:]}/",
+          subfolder="short_range"
+        )
+
+        fs = s3fs.S3FileSystem()
+        kerchunks = []
+        for ref in single_json_file_list:
+          target = dest._replace(path=ref)
+          with fs.open(target.geturl(), mode='r') as f:
+            kerchunks.append(json.load(f))
+
+        mzz = MultiZarrToZarr(
+          kerchunks,
+          remote_protocol='s3', remote_options={'anon': True},
+          concat_dims=['reference_time', 'time']
+        )
+        combined = mzz.translate()
+
+        with fs.open('{{inputs.parameters.combined-kerchunk-url}}', mode='wb') as outfile:
+          outfile.write(json.dumps(combined).encode())
