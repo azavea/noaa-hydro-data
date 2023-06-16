@@ -1,9 +1,13 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
 metadata:
-  generateName: test-
+  name: update-kerchunk
   namespace: argo
 spec:
   serviceAccountName: noaa-workflow
   entrypoint: kerchunkify
+  podGC:
+    strategy: OnWorkflowCompletion
   arguments:
     parameters:
     - name: nwm-short-range-base-url

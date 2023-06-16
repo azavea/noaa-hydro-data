@@ -1,0 +1,13 @@
+apiVersion: argoproj.io/v1alpha1
+kind: CronWorkflow
+metadata:
+  name: hourly-kerchunk-generator
+spec:
+  timezone: "UTC"
+  schedule: "0 * * * *" # At the 0th minute of every hour
+  concurrencyPolicy: "Forbid"
+  scheduledDeadlineSeconds: 1800 # Skip a missed scheduled run if it is delayed by more than 30 minutes for some reason
+  workflowSpec:
+    entrypoint: kerchunkify
+    workflowTemplateRef:
+      name: update-kerchunk
