@@ -16,6 +16,8 @@ spec:
       value: "s3://azavea-noaa-hydro-data/kerchunk"
     - name: combined-kerchunk-url
       value: "s3://azavea-noaa-hydro-data/kerchunk/combined.json"
+    - name: keep_n_days
+      value: 28
   templates:
   - name: kerchunkify
     steps:
@@ -44,79 +46,70 @@ spec:
                 memory: "2Gi"
             command: [python3]
             source: |
-              import boto3
-              from botocore.client import BaseClient
-              from typing import Callable, List, Optional
+              from datetime import datetime, timedelta
+              from functools import partial
+              import s3fs
+              from typing import cast, Callable, List, Optional
               from urllib.parse import urlparse
 
-              def get_listing(
-                  client: BaseClient,
-                  bucket: str,
-                  prefix: str='',
-                  subfolder: Optional[str] = None,
-                  filter_fn: Callable[[str], bool] = lambda x: True
+              def find_forecasts(
+                base_url: str,
+                forecast_duration: str="short_range",
+                forecast_type: str="channel_rt",
+                file_type: str="nc",
+                folder_filter: Optional[Callable[[List[str]], List[str]]]=None
               ) -> List[str]:
-                  try:
-                      folders = [
-                        x['Prefix'] for x in
-                          client.list_objects_v2(
-                            Bucket=bucket,
-                            Prefix=prefix,
-                            Delimiter='/'
-                          )['CommonPrefixes']
-                      ]
-                  except KeyError:
-                      return []
-                  chunks = filter(
-                    lambda chnk: 'Contents' in chnk,
-                    [client.list_objects_v2(
-                      Bucket=bucket,
-                      Prefix=f"{f}{subfolder}/"
-                    ) for f in folders]
-                  )
-                  return [
-                    x['Key']
-                    for chunk in chunks
-                    for x in chunk['Contents']
-                    if filter_fn(x['Key'])
-                  ]
+                fs = s3fs.S3FileSystem()
+                parsed = urlparse(base_url)
+                base = "/".join([pth for pth in [parsed.netloc, parsed.path[1:]] if pth != ""])
+                print(base)
+                folders = cast(List[str], list(filter(
+                  lambda path: path.startswith("nwm."),
+                  map(lambda path: path.split("/")[len(base.split("/"))], fs.glob(f"s3://{base}/*"))
+                )))
+                if folder_filter is not None:
+                  folders = folder_filter(folders)
+                forecasts = [path for folder in folders for path in fs.glob(f"s3://{base}/{folder}/{forecast_duration}/*{forecast_type}*.{file_type}")]
+                return forecasts
+
+              def keep_n_days(n: int, original_folders: List[str]) -> List[str]:
+                oldest_date = datetime.strptime(sorted(original_folders)[-1].split(".")[1], "%Y%m%d")
+                threshold = oldest_date - timedelta(days=n)
+                return list(filter(
+                  lambda folder: datetime.strptime(folder.split(".")[1], "%Y%m%d") >= threshold,
+                  original_folders
+                ))
 
               def index_from_path(p: str):
-                  trimmed = p[:p.rfind('.')]
-                  return "/".join(trimmed.split("/")[-3:])
+                trimmed = p[:p.rfind('.')]
+                return "/".join(trimmed.split("/")[-3:])
 
-              client = boto3.client('s3')
-              dest = urlparse('{{workflow.parameters.kerchunk-storage-base-url}}')
-              nwm_short_range_list = get_listing(
-                client,
-                "noaa-nwm-pds",
-                subfolder="short_range",
-                filter_fn=lambda x: 'channel_rt' in x and x.endswith('.nc')
+              filtered_noaa_forecasts = find_forecasts(
+                "s3://noaa-nwm-pds",
+                folder_filter=partial(keep_n_days, {{workflow.parameters.keep_n_days}})
               )
-              kerchunked_file_list = get_listing(
-                client,
-                bucket=dest.netloc,
-                prefix=f"{dest.path[1:]}/",
-                subfolder="short_range"
+              all_existing_jsons = find_forecasts(
+                "{{workflow.parameters.kerchunk-storage-base-url}}",
+                file_type="json"
               )
 
-              source_keys = set(map(index_from_path, nwm_short_range_list))
-              destination_keys = set(map(index_from_path, kerchunked_file_list))
+              source_keys = set(map(index_from_path, filtered_noaa_forecasts))
+              destination_keys = set(map(index_from_path, all_existing_jsons))
 
               to_create = list(filter(
                 lambda f: index_from_path(f) not in destination_keys,
-                nwm_short_range_list
+                filtered_noaa_forecasts
               ))
               to_delete = list(filter(
                 lambda f: index_from_path(f) not in source_keys,
-                kerchunked_file_list
+                all_existing_jsons
               ))
 
               print({
-                  "new-netcdf-files": to_create,
-                  "num-new": len(to_create),
-                  "stale-json-files": to_delete,
-                  "num-stale": len(to_delete)
+                "new-netcdf-files": to_create,
+                "num-new": len(to_create),
+                "stale-json-files": to_delete,
+                "num-stale": len(to_delete)
               })
 
               with open("/tmp/new-files.txt", "w") as f:
@@ -267,54 +260,36 @@ spec:
           memory: "2Gi"
       command: [python3]
       source: |
-        import boto3
-        from botocore.client import BaseClient
         import json
         from kerchunk.combine import MultiZarrToZarr
         import s3fs
         from typing import Callable, List, Optional
         from urllib.parse import urlparse
 
-        def get_listing(
-            client: BaseClient,
-            bucket: str,
-            prefix: str='',
-            subfolder: Optional[str] = None,
+        def find_forecasts(
+          fs: s3fs.S3FileSystem,
+          base_url: str,
+          forecast_duration: str="short_range",
+          forecast_type: str="channel_rt",
+          file_type: str="nc"
         ) -> List[str]:
-            try:
-                folders = [
-                  x['Prefix'] for x in
-                    client.list_objects_v2(
-                      Bucket=bucket,
-                      Prefix=prefix,
-                      Delimiter='/'
-                    )['CommonPrefixes']
-                ]
-            except KeyError:
-                return []
-            chunks = filter(
-              lambda chnk: 'Contents' in chnk,
-              [client.list_objects_v2(
-                Bucket=bucket,
-                Prefix=f"{f}{subfolder}/"
-              ) for f in folders]
-            )
-            return [
-              x['Key']
-              for chunk in chunks
-              for x in chunk['Contents']
-            ]
-
-        client = boto3.client('s3')
-        dest = urlparse('{{inputs.parameters.json-store-base-url}}')
-        single_json_file_list = get_listing(
-          client,
-          bucket=dest.netloc,
-          prefix=f"{dest.path[1:]}/",
-          subfolder="short_range"
-        )
+          parsed = urlparse(base_url)
+          base = "/".join([pth for pth in [parsed.netloc, parsed.path[1:]] if pth != ""])
+          print(base)
+          folders = cast(List[str], list(filter(
+            lambda path: path.startswith("nwm."),
+            map(lambda path: path.split("/")[len(base.split("/"))], fs.glob(f"s3://{base}/*"))
+          )))
+          forecasts = [path for folder in folders for path in fs.glob(f"s3://{base}/{folder}/{forecast_duration}/*{forecast_type}*.{file_type}")]
+          return forecasts
 
         fs = s3fs.S3FileSystem()
+        single_json_file_list = find_forecasts(
+          fs,
+          "{{inputs.parameters.json-store-base-url}}",
+          file_type="json"
+        )
+
         kerchunks = []
         for ref in single_json_file_list:
           target = dest._replace(path=ref)
