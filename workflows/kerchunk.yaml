@@ -15,7 +15,7 @@ spec:
     - name: kerchunk-storage-base-url
       value: "s3://azavea-noaa-hydro-data/kerchunk"
     - name: combined-kerchunk-url
-      value: "s3://azavea-noaa-hydro-data/kerchunk/combined.json"
+      value: "s3://azavea-noaa-hydro-data-public/nmw-combined-kerchunk.json"
     - name: keep_n_days
       value: 28
   templates:
@@ -180,7 +180,6 @@ spec:
         from kerchunk.hdf import SingleHdf5ToZarr
 
         def generate_kerchunk(fs, netcdf):
-            netcdf = netcdf.strip()
             with fs.open(netcdf, mode='rb', anon=True) as ncfile:
                 out_prefix = urlparse(netcdf).path[1:]
                 json_url = f'{{inputs.parameters.json-store-base-url}}/{out_prefix[:-3]}.json'
@@ -199,8 +198,9 @@ spec:
 
         fs = s3fs.S3FileSystem()
         for filename in files:
+          filename = f"s3://{filename.strip()}"
           try:
-            generate_kerchunk(fs, f"{{inputs.parameters.nwm-base-url}}/{filename}")
+            generate_kerchunk(fs, filename)
           except FileNotFoundError as e:
             print(f"Did not find {filename}!  Exception was {e}")
 
@@ -237,7 +237,7 @@ spec:
           response = client.delete_objects(
             Bucket=urlparse("{{inputs.parameters.json-store-base-url}}").netloc,
             Delete={
-              "Objects": [{"Key": f.strip()} for f in chunk]
+              "Objects": [{"Key": (f[f.find("/")+1:]).strip()} for f in chunk]
             }
           )
           if 'Errors' in response:
@@ -276,10 +276,10 @@ spec:
           parsed = urlparse(base_url)
           base = "/".join([pth for pth in [parsed.netloc, parsed.path[1:]] if pth != ""])
           print(base)
-          folders = cast(List[str], list(filter(
+          folders = list(filter(
             lambda path: path.startswith("nwm."),
             map(lambda path: path.split("/")[len(base.split("/"))], fs.glob(f"s3://{base}/*"))
-          )))
+          ))
           forecasts = [path for folder in folders for path in fs.glob(f"s3://{base}/{folder}/{forecast_duration}/*{forecast_type}*.{file_type}")]
           return forecasts
 
@@ -292,8 +292,7 @@ spec:
 
         kerchunks = []
         for ref in single_json_file_list:
-          target = dest._replace(path=ref)
-          with fs.open(target.geturl(), mode='r') as f:
+          with fs.open(ref, mode='r') as f:
             kerchunks.append(json.load(f))
 
         mzz = MultiZarrToZarr(
