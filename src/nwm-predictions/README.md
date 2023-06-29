@@ -68,7 +68,7 @@ The analysis time between NetCDF, Zarr, and Kerchunk access is roughly the same.
 
 In addition, when using the Kerchunk Combined variation, we see RAM usage dip to very low levels, adn the overall processing speed up a lot. Given its low resource use and low overhead, this is the recommended approach.
 
-We have taken the Kerchunk Combined approach above and formalized it into an Argo Workflow in [#132](https://github.com/azavea/noaa-hydro-data/pull/132). This workflow produces a Kerchunk Combined index file for all the currently available NWM Predictions, allowing for fast querying of data. This combined index is created every hour and saved to AWS at `s3://azavea-noaa-hydro-data/kerchunk/combined.json`. A final notebook adapting the above example to this new combined index and querying 3 days of data is presented in [8_evaluating_nwm_streamflow_predictions_kerchunk-combined_via-argo][11].
+We have taken the Kerchunk Combined approach above and formalized it into an Argo Workflow in [#132](https://github.com/azavea/noaa-hydro-data/pull/132). This workflow produces a Kerchunk Combined index file for all the currently available NWM Predictions, allowing for fast querying of data. This combined index is created every hour and saved to AWS at `s3://azavea-noaa-hydro-data-public/nmw-combined-kerchunk.json`. A final notebook adapting the above example to this new combined index and querying 3 days of data is presented in [8_evaluating_nwm_streamflow_predictions_kerchunk-combined_via-argo][11].
 
 
 [1]: https://water.noaa.gov/about/output_file_contents
