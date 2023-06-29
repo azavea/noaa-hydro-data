@@ -15,7 +15,7 @@ spec:
     - name: kerchunk-storage-base-url
       value: "s3://azavea-noaa-hydro-data/kerchunk"
     - name: combined-kerchunk-url
-      value: "s3://azavea-noaa-hydro-data-public/nmw-combined-kerchunk.json"
+      value: "s3://azavea-noaa-hydro-data-public/nwm-combined-kerchunk.json"
     - name: keep_n_days
       value: 28
   templates:
