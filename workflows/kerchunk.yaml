@@ -1,0 +1,306 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: update-kerchunk
+  namespace: argo
+spec:
+  serviceAccountName: noaa-workflow
+  entrypoint: kerchunkify
+  podGC:
+    strategy: OnWorkflowCompletion
+  arguments:
+    parameters:
+    - name: nwm-short-range-base-url
+      value: "s3://noaa-nwm-pds"
+    - name: kerchunk-storage-base-url
+      value: "s3://azavea-noaa-hydro-data/kerchunk"
+    - name: combined-kerchunk-url
+      value: "s3://azavea-noaa-hydro-data-public/nmw-combined-kerchunk.json"
+    - name: keep_n_days
+      value: 28
+  templates:
+  - name: kerchunkify
+    steps:
+    - - name: identify-diffs
+        inline:
+          nodeSelector:
+            node-type: worker
+          outputs:
+            artifacts:
+            - name: new-netcdf-files
+              path: /tmp/new-files.txt
+            - name: stale-json-files
+              path: /tmp/stale-files.txt
+            parameters:
+            - name: num-new
+              valueFrom:
+                path: /tmp/new-count.txt
+            - name: num-stale
+              valueFrom:
+                path: /tmp/stale-count.txt
+          script:
+            image: pangeo/pangeo-notebook:2023.05.18
+            resources:
+              limits:
+                cpu: "500m"
+                memory: "2Gi"
+            command: [python3]
+            source: |
+              from datetime import datetime, timedelta
+              from functools import partial
+              import s3fs
+              from typing import cast, Callable, List, Optional
+              from urllib.parse import urlparse
+
+              def find_forecasts(
+                base_url: str,
+                forecast_duration: str="short_range",
+                forecast_type: str="channel_rt",
+                file_type: str="nc",
+                folder_filter: Optional[Callable[[List[str]], List[str]]]=None
+              ) -> List[str]:
+                fs = s3fs.S3FileSystem()
+                parsed = urlparse(base_url)
+                base = "/".join([pth for pth in [parsed.netloc, parsed.path[1:]] if pth != ""])
+                print(base)
+                folders = cast(List[str], list(filter(
+                  lambda path: path.startswith("nwm."),
+                  map(lambda path: path.split("/")[len(base.split("/"))], fs.glob(f"s3://{base}/*"))
+                )))
+                if folder_filter is not None:
+                  folders = folder_filter(folders)
+                forecasts = [path for folder in folders for path in fs.glob(f"s3://{base}/{folder}/{forecast_duration}/*{forecast_type}*.{file_type}")]
+                return forecasts
+
+              def keep_n_days(n: int, original_folders: List[str]) -> List[str]:
+                oldest_date = datetime.strptime(sorted(original_folders)[-1].split(".")[1], "%Y%m%d")
+                threshold = oldest_date - timedelta(days=n)
+                return list(filter(
+                  lambda folder: datetime.strptime(folder.split(".")[1], "%Y%m%d") >= threshold,
+                  original_folders
+                ))
+
+              def index_from_path(p: str):
+                trimmed = p[:p.rfind('.')]
+                return "/".join(trimmed.split("/")[-3:])
+
+              filtered_noaa_forecasts = find_forecasts(
+                "s3://noaa-nwm-pds",
+                folder_filter=partial(keep_n_days, {{workflow.parameters.keep_n_days}})
+              )
+              all_existing_jsons = find_forecasts(
+                "{{workflow.parameters.kerchunk-storage-base-url}}",
+                file_type="json"
+              )
+
+              source_keys = set(map(index_from_path, filtered_noaa_forecasts))
+              destination_keys = set(map(index_from_path, all_existing_jsons))
+
+              to_create = list(filter(
+                lambda f: index_from_path(f) not in destination_keys,
+                filtered_noaa_forecasts
+              ))
+              to_delete = list(filter(
+                lambda f: index_from_path(f) not in source_keys,
+                all_existing_jsons
+              ))
+
+              print({
+                "new-netcdf-files": to_create,
+                "num-new": len(to_create),
+                "stale-json-files": to_delete,
+                "num-stale": len(to_delete)
+              })
+
+              with open("/tmp/new-files.txt", "w") as f:
+                f.write('\n'.join(to_create))
+              with open("/tmp/stale-files.txt", "w") as f:
+                f.write('\n'.join(to_delete))
+              with open("/tmp/new-count.txt", "w") as f:
+                f.write(str(len(to_create)))
+              with open("/tmp/stale-count.txt", "w") as f:
+                f.write(str(len(to_delete)))
+
+    - - name: create-individual-kerchunks
+        arguments:
+          artifacts:
+          - name: new-netcdfs
+            from: "{{steps.identify-diffs.outputs.artifacts.new-netcdf-files}}"
+          parameters:
+          - name: num-netcdfs
+            value: "{{steps.identify-diffs.outputs.parameters.num-new}}"
+          - name: nwm-base-url
+            value: "{{workflow.parameters.nwm-short-range-base-url}}"
+          - name: json-store-base-url
+            value: "{{workflow.parameters.kerchunk-storage-base-url}}"
+        template: create-new-single-kerchunks
+
+      - name: clear-stale-jsons
+        arguments:
+          artifacts:
+          - name: stale-jsons
+            from: "{{steps.identify-diffs.outputs.artifacts.stale-json-files}}"
+          parameters:
+          - name: num-jsons
+            value: "{{steps.identify-diffs.outputs.parameters.num-stale}}"
+          - name: json-store-base-url
+            value: "{{workflow.parameters.kerchunk-storage-base-url}}"
+        template: delete-stale-jsons
+
+    - - name: create-combined-kerchunk
+        arguments:
+          parameters:
+          - name: json-store-base-url
+            value: "{{workflow.parameters.kerchunk-storage-base-url}}"
+          - name: combined-kerchunk-url
+            value: "{{workflow.parameters.combined-kerchunk-url}}"
+        template: generate-combined-kerchunk
+
+  - name: create-new-single-kerchunks
+    nodeSelector:
+      node-type: worker
+    inputs:
+      artifacts:
+      - name: new-netcdfs
+        path: /tmp/new-netcdfs.txt
+      parameters:
+      - name: num-netcdfs
+      - name: nwm-base-url
+      - name: json-store-base-url
+    script:
+      image: pangeo/pangeo-notebook:2023.05.18
+      resources:
+        limits:
+          cpu: "500m"
+          memory: "2Gi"
+      command: [python3]
+      source: |
+        import json, os, s3fs
+        from urllib.parse import urlparse
+        from kerchunk.hdf import SingleHdf5ToZarr
+
+        def generate_kerchunk(fs, netcdf):
+            with fs.open(netcdf, mode='rb', anon=True) as ncfile:
+                out_prefix = urlparse(netcdf).path[1:]
+                json_url = f'{{inputs.parameters.json-store-base-url}}/{out_prefix[:-3]}.json'
+                with fs.open(json_url, mode='wb') as outfile:
+                    print(f"Writing to {json_url}")
+                    outfile.write(
+                        json.dumps(
+                            SingleHdf5ToZarr(ncfile, netcdf).translate()
+                        ).encode()
+                    )
+                    return json_url
+
+        with open("/tmp/new-netcdfs.txt") as f:
+            files = f.readlines()
+        print(f"Seeing {len(files)} new netcdf files; expected {{inputs.parameters.num-netcdfs}}")
+
+        fs = s3fs.S3FileSystem()
+        for filename in files:
+          filename = f"s3://{filename.strip()}"
+          try:
+            generate_kerchunk(fs, filename)
+          except FileNotFoundError as e:
+            print(f"Did not find {filename}!  Exception was {e}")
+
+  - name: delete-stale-jsons
+    nodeSelector:
+      node-type: worker
+    inputs:
+      artifacts:
+      - name: stale-jsons
+        path: /tmp/stale-jsons.txt
+      parameters:
+      - name: json-store-base-url
+      - name: num-jsons
+    script:
+      image: pangeo/pangeo-notebook:2023.05.18
+      resources:
+        limits:
+          cpu: "500m"
+          memory: "2Gi"
+      command: [python3]
+      source: |
+        import boto3
+        from urllib.parse import urlparse
+
+        with open("/tmp/stale-jsons.txt") as f:
+          files = f.readlines()
+        print(f"Seeing {len(files)} stale JSON files; expected {{inputs.parameters.num-jsons}}")
+
+        client = boto3.client("s3")
+        errors = []
+        while len(files) > 0:
+          chunk = files[0:min(1000,len(files))]
+          files = files[min(1000,len(files)):]
+          response = client.delete_objects(
+            Bucket=urlparse("{{inputs.parameters.json-store-base-url}}").netloc,
+            Delete={
+              "Objects": [{"Key": (f[f.find("/")+1:]).strip()} for f in chunk]
+            }
+          )
+          if 'Errors' in response:
+            errors.extend(response['Errors'])
+
+        print("Error report:\n", errors)
+
+  - name: generate-combined-kerchunk
+    nodeSelector:
+      node-type: worker
+    inputs:
+      parameters:
+      - name: json-store-base-url
+      - name: combined-kerchunk-url
+    script:
+      image: pangeo/pangeo-notebook:2023.05.18
+      resources:
+        limits:
+          cpu: "500m"
+          memory: "2Gi"
+      command: [python3]
+      source: |
+        import json
+        from kerchunk.combine import MultiZarrToZarr
+        import s3fs
+        from typing import Callable, List, Optional
+        from urllib.parse import urlparse
+
+        def find_forecasts(
+          fs: s3fs.S3FileSystem,
+          base_url: str,
+          forecast_duration: str="short_range",
+          forecast_type: str="channel_rt",
+          file_type: str="nc"
+        ) -> List[str]:
+          parsed = urlparse(base_url)
+          base = "/".join([pth for pth in [parsed.netloc, parsed.path[1:]] if pth != ""])
+          print(base)
+          folders = list(filter(
+            lambda path: path.startswith("nwm."),
+            map(lambda path: path.split("/")[len(base.split("/"))], fs.glob(f"s3://{base}/*"))
+          ))
+          forecasts = [path for folder in folders for path in fs.glob(f"s3://{base}/{folder}/{forecast_duration}/*{forecast_type}*.{file_type}")]
+          return forecasts
+
+        fs = s3fs.S3FileSystem()
+        single_json_file_list = find_forecasts(
+          fs,
+          "{{inputs.parameters.json-store-base-url}}",
+          file_type="json"
+        )
+
+        kerchunks = []
+        for ref in single_json_file_list:
+          with fs.open(ref, mode='r') as f:
+            kerchunks.append(json.load(f))
+
+        mzz = MultiZarrToZarr(
+          kerchunks,
+          remote_protocol='s3', remote_options={'anon': True},
+          concat_dims=['reference_time', 'time']
+        )
+        combined = mzz.translate()
+
+        with fs.open('{{inputs.parameters.combined-kerchunk-url}}', mode='wb') as outfile:
+          outfile.write(json.dumps(combined).encode())
