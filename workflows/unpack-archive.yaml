@@ -1,0 +1,36 @@
+metadata:
+  generateName: unpack-archive-
+  namespace: daskhub
+spec:
+  entrypoint: unpack
+  arguments:
+    parameters:
+    - name: source-file
+      value: /opt/data/fim/3dep_test_1202_10m_FR.7z
+    - name: destination
+      value: /opt/data/fim
+  volumes:
+  - name: noaa
+    persistentVolumeClaim:
+      claimName: noaa-hydro-data
+      readOnly: false
+  templates:
+  - name: unpack
+    inputs:
+      parameters:
+      - name: src
+        value: '{{workflow.parameters.source-file}}'
+      - name: dst
+        value: '{{workflow.parameters.destination}}'
+    container:
+      name: main
+      image: ghcr.io/crazy-max/7zip
+      args:
+        - 7za
+        - x
+        - -y
+        - '{{inputs.parameters.src}}'
+        - '-o{{inputs.parameters.dst}}'
+      volumeMounts:
+      - name: noaa
+        mountPath: /opt/data
